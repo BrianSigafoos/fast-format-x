@@ -1,66 +1,27 @@
 # fast-format-x (ffx)
 
-A fast CLI that runs formatter commands on staged files in parallel.
+A blazing fast CLI that runs formatter commands on staged files in parallel. Written in Rust.
 
-## Development Setup
+## Installation
 
-### 1. Install Rust
+### Prerequisites
+
+Install Rust if you don't have it:
 
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-```
-
-Follow the prompts (default installation is fine). Then restart your terminal or run:
-
-```bash
 source ~/.cargo/env
 ```
 
-Verify installation:
+### Install
 
 ```bash
-rustc --version
-cargo --version
+git clone https://github.com/briansigafoos/fast-format-x.git
+cd fast-format-x
+cargo install --path .
 ```
 
-### 2. Build and Run
-
-```bash
-# Build debug version
-cargo build
-
-# Run directly
-cargo run
-
-# Run with arguments
-cargo run -- --help
-cargo run -- --all
-
-# Build optimized release version
-cargo build --release
-```
-
-The release binary will be at `target/release/ffx`.
-
-### 3. Development Commands
-
-```bash
-# Check code compiles without building
-cargo check
-
-# Run tests
-cargo test
-
-# Format code
-cargo fmt
-
-# Lint code
-cargo clippy
-
-# Watch for changes and rebuild
-cargo install cargo-watch  # one-time install
-cargo watch -x check
-```
+The binary is installed to `~/.cargo/bin/ffx`. Make sure `~/.cargo/bin` is in your PATH.
 
 ## Usage
 
@@ -84,6 +45,16 @@ ffx --fail-fast
 ffx --verbose
 ```
 
+### AI Agent Integration
+
+Add to your `AGENTS.md` or Cursor rules to save LLM tokens on formatting:
+
+```markdown
+## Formatting
+
+Run `ffx` to auto-format all staged files. Don't manually format code.
+```
+
 ## Configuration
 
 Create `.fast-format-x.yaml` in your repo root:
@@ -102,7 +73,7 @@ tools:
     args: [exec, rubocop, -A]
 
   - name: prettier
-    include: ["**/*.md", "**/*.yml", "**/*.yaml"]
+    include: ["**/*.md", "**/*.yml", "**/*.yaml", "**/*.js", "**/*.ts"]
     cmd: npx
     args: [prettier, --write]
 
@@ -110,6 +81,16 @@ tools:
     include: ["**/*.kt", "**/*.kts"]
     cmd: ktlint
     args: [-F]
+
+  - name: gofmt
+    include: ["**/*.go"]
+    cmd: gofmt
+    args: [-w]
+
+  - name: rustfmt
+    include: ["**/*.rs"]
+    cmd: cargo
+    args: [fmt, --]
 ```
 
 ## Exit Codes
@@ -121,3 +102,53 @@ tools:
 | 2 | Config error |
 | 3 | Missing executable |
 
+---
+
+## Development
+
+### Setup
+
+```bash
+# Install Rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source ~/.cargo/env
+
+# Verify
+rustc --version
+cargo --version
+```
+
+### Build and Run
+
+```bash
+# Build debug version
+cargo build
+
+# Run directly
+cargo run
+cargo run -- --help
+cargo run -- --all
+
+# Build optimized release
+cargo build --release
+```
+
+### Development Commands
+
+```bash
+# Check code compiles
+cargo check
+
+# Run tests
+cargo test
+
+# Format code
+cargo fmt
+
+# Lint code
+cargo clippy
+
+# Watch for changes
+cargo install cargo-watch  # one-time
+cargo watch -x check
+```
