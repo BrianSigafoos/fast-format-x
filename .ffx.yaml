@@ -1,0 +1,18 @@
+version: 1
+
+tools:
+  - name: rustfmt
+    include: ["**/*.rs"]
+    cmd: cargo
+    args: [fmt, --]
+
+  - name: prettier
+    include:
+      - "**/*.md"
+      - "**/*.yml"
+      - "**/*.yaml"
+    exclude:
+      - "target/**"
+    cmd: npx
+    args: [prettier, --write]
+

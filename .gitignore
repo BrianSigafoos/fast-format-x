@@ -1,0 +1,21 @@
+# Rust build artifacts
+/target/
+**/*.rs.bk
+
+# Cargo lock is committed for binaries (this is a CLI tool)
+# Cargo.lock
+
+# IDE
+.idea/
+*.swp
+*.swo
+.vscode/
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# macOS
+.DS_Store
+
+# Debug
+*.pdb
+
