@@ -72,7 +72,7 @@ ffx
 ffx --all
 
 # Use custom config
-ffx --config path/to/.ffx.yaml
+ffx --config path/to/.fast-format-x.yaml
 
 # Limit parallel jobs
 ffx --jobs 4
@@ -86,7 +86,7 @@ ffx --verbose
 
 ## Configuration
 
-Create `.ffx.yaml` in your repo root:
+Create `.fast-format-x.yaml` in your repo root:
 
 ```yaml
 version: 1

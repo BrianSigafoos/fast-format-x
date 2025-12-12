@@ -35,7 +35,7 @@ struct Cli {
     all: bool,
 
     /// Path to config file
-    #[arg(long, default_value = ".ffx.yaml")]
+    #[arg(long, default_value = ".fast-format-x.yaml")]
     config: String,
 
     /// Max parallel processes

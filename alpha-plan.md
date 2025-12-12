@@ -76,7 +76,7 @@ git diff --name-only --cached
 
 ## Config file
 
-**Location**: `.ffx.yaml` at repo root.
+**Location**: `.fast-format-x.yaml` at repo root.
 
 ### Schema (v1)
 
@@ -195,7 +195,7 @@ Prints full command and streamed output per batch.
 ## Build order (learning path)
 
 1. **Skeleton**: `cargo new ffx`, add `clap` and `serde_yaml`
-2. **Config parsing**: Load `.ffx.yaml`, deserialize to structs
+2. **Config parsing**: Load `.fast-format-x.yaml`, deserialize to structs
 3. **Git discovery**: Shell out to `git diff --name-only --cached`
 4. **Glob matching**: Match files to tools with `globset`
 5. **Single-threaded execution**: Run commands with `std::process::Command`
