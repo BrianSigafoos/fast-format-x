@@ -308,6 +308,14 @@
       text-align: center;
     }
 
+    .config h2 code {
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--code-bg);
+      padding: 0.3em 0.6em;
+      border-radius: 6px;
+      color: var(--accent);
+    }
+
     .config pre {
       background: var(--code-bg);
       border: 1px solid var(--border);
@@ -447,7 +455,7 @@
       <div class="feature">
         <div class="feature-icon">🔧</div>
         <div class="feature-title">Simple Config</div>
-        <div class="feature-desc">One YAML file to define all your formatters with glob patterns.</div>
+        <div class="feature-desc">One <code>.fast-format-x.yaml</code> file defines all your formatters with glob patterns.</div>
       </div>
       <div class="feature">
         <div class="feature-icon">🦀</div>
@@ -466,8 +474,9 @@
     </div>
 
     <div class="config">
-      <h2>Configuration</h2>
-      <pre><code><span class="key">version:</span> 1
+      <h2><code>.fast-format-x.yaml</code></h2>
+      <pre><code><span class="comment"># Required config file in your project root</span>
+<span class="key">version:</span> 1
 
 <span class="key">tools:</span>
   <span class="comment"># Ruby</span>
@@ -487,7 +496,19 @@
   - <span class="key">name:</span> rustfmt
     <span class="key">include:</span> [<span class="string">"**/*.rs"</span>]
     <span class="key">cmd:</span> cargo
-    <span class="key">args:</span> [fmt, --]</code></pre>
+    <span class="key">args:</span> [fmt, --]
+
+  <span class="comment"># Kotlin</span>
+  - <span class="key">name:</span> ktlint
+    <span class="key">include:</span> [<span class="string">"**/*.kt"</span>, <span class="string">"**/*.kts"</span>]
+    <span class="key">cmd:</span> ktlint
+    <span class="key">args:</span> [-F]
+
+  <span class="comment"># Go</span>
+  - <span class="key">name:</span> gofmt
+    <span class="key">include:</span> [<span class="string">"**/*.go"</span>]
+    <span class="key">cmd:</span> gofmt
+    <span class="key">args:</span> [-w]</code></pre>
     </div>
 
     <footer>
