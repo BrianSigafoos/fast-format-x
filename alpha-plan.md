@@ -36,22 +36,22 @@ ffx --all               # Format all matching files
 
 ### Flags
 
-| Flag | Description |
-|------|-------------|
-| `--all` | Run on all files matching config patterns |
-| `--config <path>` | Config file path (default: `.ffx.yaml`) |
-| `--jobs <n>` | Max parallel processes (default: logical CPUs) |
-| `--fail-fast` | Stop scheduling new work on first failure |
-| `--verbose` | Print full commands and output |
+| Flag              | Description                                    |
+| ----------------- | ---------------------------------------------- |
+| `--all`           | Run on all files matching config patterns      |
+| `--config <path>` | Config file path (default: `.ffx.yaml`)        |
+| `--jobs <n>`      | Max parallel processes (default: logical CPUs) |
+| `--fail-fast`     | Stop scheduling new work on first failure      |
+| `--verbose`       | Print full commands and output                 |
 
 ### Exit codes
 
-| Code | Meaning |
-|------|---------|
-| 0 | Success |
-| 1 | Formatter failure |
-| 2 | Config error |
-| 3 | Missing executable |
+| Code | Meaning            |
+| ---- | ------------------ |
+| 0    | Success            |
+| 1    | Formatter failure  |
+| 2    | Config error       |
+| 3    | Missing executable |
 
 ---
 
@@ -171,24 +171,24 @@ Prints full command and streamed output per batch.
 
 ### Crates
 
-| Crate | Purpose |
-|-------|---------|
-| `clap` | CLI argument parsing |
-| `serde` + `serde_yaml` | Config parsing |
-| `globset` | Glob pattern matching |
-| `rayon` | Parallel execution |
-| `anyhow` | Error handling |
+| Crate                  | Purpose               |
+| ---------------------- | --------------------- |
+| `clap`                 | CLI argument parsing  |
+| `serde` + `serde_yaml` | Config parsing        |
+| `globset`              | Glob pattern matching |
+| `rayon`                | Parallel execution    |
+| `anyhow`               | Error handling        |
 
 ### Modules
 
-| Module | Purpose |
-|--------|---------|
-| `config` | Parse and validate YAML |
-| `git` | Staged file discovery |
-| `matcher` | Glob matching files to tools |
-| `planner` | Group files into batches |
-| `exec` | Process runner with parallelism |
-| `output` | Deterministic reporting |
+| Module    | Purpose                         |
+| --------- | ------------------------------- |
+| `config`  | Parse and validate YAML         |
+| `git`     | Staged file discovery           |
+| `matcher` | Glob matching files to tools    |
+| `planner` | Group files into batches        |
+| `exec`    | Process runner with parallelism |
+| `output`  | Deterministic reporting         |
 
 ---
 

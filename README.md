@@ -95,12 +95,12 @@ tools:
 
 ## Exit Codes
 
-| Code | Meaning |
-|------|---------|
-| 0 | Success |
-| 1 | Formatter failure |
-| 2 | Config error |
-| 3 | Missing executable |
+| Code | Meaning            |
+| ---- | ------------------ |
+| 0    | Success            |
+| 1    | Formatter failure  |
+| 2    | Config error       |
+| 3    | Missing executable |
 
 ---
 

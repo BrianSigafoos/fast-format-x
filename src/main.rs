@@ -87,14 +87,17 @@ fn run() -> Result<bool> {
 
     // Get files to format
     let files = if cli.all {
-        eprintln!("--all mode not yet implemented");
-        return Ok(true);
+        git::all_files().context("Failed to get all files")?
     } else {
         git::staged_files().context("Failed to get staged files")?
     };
 
     if files.is_empty() {
-        println!("No staged files.");
+        if cli.all {
+            println!("No files found.");
+        } else {
+            println!("No staged files.");
+        }
         return Ok(true);
     }
 

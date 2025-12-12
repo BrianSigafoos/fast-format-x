@@ -15,4 +15,3 @@ tools:
       - "target/**"
     cmd: npx
     args: [prettier, --write]
-
