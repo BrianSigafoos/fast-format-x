@@ -56,7 +56,10 @@ impl Config {
     fn validate(&self) -> Result<()> {
         // Check version
         if self.version != 1 {
-            anyhow::bail!("Unsupported config version: {}. Only version 1 is supported.", self.version);
+            anyhow::bail!(
+                "Unsupported config version: {}. Only version 1 is supported.",
+                self.version
+            );
         }
 
         // Check we have at least one tool
@@ -70,7 +73,10 @@ impl Config {
                 anyhow::bail!("Tool name cannot be empty");
             }
             if tool.include.is_empty() {
-                anyhow::bail!("Tool '{}' must have at least one include pattern", tool.name);
+                anyhow::bail!(
+                    "Tool '{}' must have at least one include pattern",
+                    tool.name
+                );
             }
             if tool.cmd.is_empty() {
                 anyhow::bail!("Tool '{}' must have a cmd", tool.name);
@@ -118,4 +124,3 @@ tools:
         assert!(config.tools[0].exclude.is_empty());
     }
 }
-
