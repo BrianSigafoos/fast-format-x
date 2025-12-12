@@ -247,6 +247,15 @@
       color: var(--text-dim);
     }
 
+    .feature-desc code {
+      background: var(--code-bg);
+      padding: 0.15em 0.4em;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85em;
+      color: var(--accent);
+    }
+
     /* Install section */
     .install {
       background: var(--bg-alt);
@@ -420,6 +429,11 @@
     </div>
 
     <div class="features">
+      <div class="feature">
+        <div class="feature-icon">🤖</div>
+        <div class="feature-title">LLM Token Saver</div>
+        <div class="feature-desc">Add <code>ffx</code> to your AGENTS.md. AI stops wasting tokens on formatting—just runs one command.</div>
+      </div>
       <div class="feature">
         <div class="feature-icon">⚡</div>
         <div class="feature-title">Parallel Execution</div>
