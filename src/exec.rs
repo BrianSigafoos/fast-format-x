@@ -124,3 +124,103 @@ pub fn configure_parallelism(jobs: usize) -> Result<()> {
         .context("Failed to configure thread pool")?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::Tool;
+    use std::path::PathBuf;
+
+    fn make_tool(name: &str, cmd: &str, args: &[&str]) -> Tool {
+        Tool {
+            name: name.to_string(),
+            include: vec!["**/*".to_string()],
+            exclude: vec![],
+            cmd: cmd.to_string(),
+            args: args.iter().map(|s| s.to_string()).collect(),
+        }
+    }
+
+    #[test]
+    fn test_command_exists_true() {
+        // 'echo' should exist on all Unix systems
+        assert!(command_exists("echo"));
+    }
+
+    #[test]
+    fn test_command_exists_false() {
+        // This command should not exist
+        assert!(!command_exists(
+            "this_command_definitely_does_not_exist_12345"
+        ));
+    }
+
+    #[test]
+    fn test_run_tool_with_echo() {
+        let tool = make_tool("test", "echo", &["hello"]);
+        let files: Vec<PathBuf> = vec!["file1.txt".into(), "file2.txt".into()];
+        let file_refs: Vec<&Path> = files.iter().map(|p| p.as_path()).collect();
+
+        let result = run_tool(&tool, &file_refs).unwrap();
+
+        assert!(result.success);
+        assert_eq!(result.batches.len(), 1);
+        assert!(result.batches[0].stdout.contains("hello"));
+        assert!(result.batches[0].stdout.contains("file1.txt"));
+        assert!(result.batches[0].stdout.contains("file2.txt"));
+    }
+
+    #[test]
+    fn test_run_tool_failure() {
+        // 'false' command always exits with code 1
+        let tool = make_tool("fail", "false", &[]);
+        let files: Vec<PathBuf> = vec!["file.txt".into()];
+        let file_refs: Vec<&Path> = files.iter().map(|p| p.as_path()).collect();
+
+        let result = run_tool(&tool, &file_refs).unwrap();
+
+        assert!(!result.success);
+        assert!(!result.batches[0].success);
+    }
+
+    #[test]
+    fn test_run_tool_nonexistent_command() {
+        let tool = make_tool("bad", "nonexistent_command_xyz", &[]);
+        let files: Vec<PathBuf> = vec!["file.txt".into()];
+        let file_refs: Vec<&Path> = files.iter().map(|p| p.as_path()).collect();
+
+        let result = run_tool(&tool, &file_refs);
+
+        // Should return an error, not a failed result
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_batching_large_file_list() {
+        let tool = make_tool("test", "echo", &[]);
+
+        // Create more files than MAX_FILES_PER_BATCH (50)
+        let files: Vec<PathBuf> = (0..120).map(|i| format!("file{}.txt", i).into()).collect();
+        let file_refs: Vec<&Path> = files.iter().map(|p| p.as_path()).collect();
+
+        let result = run_tool(&tool, &file_refs).unwrap();
+
+        assert!(result.success);
+        // Should have 3 batches: 50 + 50 + 20
+        assert_eq!(result.batches.len(), 3);
+    }
+
+    #[test]
+    fn test_batch_result_contains_command() {
+        let tool = make_tool("test", "echo", &["--flag"]);
+        let files: Vec<PathBuf> = vec!["myfile.rs".into()];
+        let file_refs: Vec<&Path> = files.iter().map(|p| p.as_path()).collect();
+
+        let result = run_tool(&tool, &file_refs).unwrap();
+
+        let cmd = &result.batches[0].command;
+        assert!(cmd.contains("echo"));
+        assert!(cmd.contains("--flag"));
+        assert!(cmd.contains("myfile.rs"));
+    }
+}

@@ -91,6 +91,9 @@ get_install_dir() {
     fi
 }
 
+# Global tmp_dir for cleanup trap (local vars go out of scope before EXIT trap runs)
+TMP_DIR=""
+
 main() {
     echo ""
     echo "  ╭─────────────────────────────────────────╮"
@@ -98,7 +101,7 @@ main() {
     echo "  ╰─────────────────────────────────────────╯"
     echo ""
 
-    local os arch version install_dir target download_url tmp_dir
+    local os arch version install_dir target download_url
 
     os=$(detect_os)
     arch=$(detect_arch)
@@ -132,22 +135,22 @@ main() {
     info "Downloading from: $download_url"
 
     # Create temp directory
-    tmp_dir=$(mktemp -d)
-    trap 'rm -rf "$tmp_dir"' EXIT
+    TMP_DIR=$(mktemp -d)
+    trap 'rm -rf "$TMP_DIR"' EXIT
 
     # Download and extract
-    if ! curl -fsSL "$download_url" -o "$tmp_dir/ffx.tar.gz"; then
+    if ! curl -fsSL "$download_url" -o "$TMP_DIR/ffx.tar.gz"; then
         error "Failed to download ffx. Check that version ${version} exists at https://github.com/${REPO}/releases"
     fi
 
-    tar -xzf "$tmp_dir/ffx.tar.gz" -C "$tmp_dir"
+    tar -xzf "$TMP_DIR/ffx.tar.gz" -C "$TMP_DIR"
 
     # Determine install location
     install_dir=$(get_install_dir)
     info "Installing to: $install_dir"
 
     # Install binary
-    mv "$tmp_dir/${BINARY_NAME}" "$install_dir/${BINARY_NAME}"
+    mv "$TMP_DIR/${BINARY_NAME}" "$install_dir/${BINARY_NAME}"
     chmod +x "$install_dir/${BINARY_NAME}"
 
     success "ffx ${version} installed successfully!"

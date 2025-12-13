@@ -18,10 +18,10 @@ This downloads the prebuilt binary for your platform (macOS Apple Silicon or Int
 
 Download binaries directly from [GitHub Releases](https://github.com/BrianSigafoos/fast-format-x/releases):
 
-| Platform           | Download                                                                                   |
-| ------------------ | ------------------------------------------------------------------------------------------ |
-| macOS Apple Silicon | `ffx-aarch64-apple-darwin.tar.gz`                                                         |
-| macOS Intel        | `ffx-x86_64-apple-darwin.tar.gz`                                                          |
+| Platform            | Download                          |
+| ------------------- | --------------------------------- |
+| macOS Apple Silicon | `ffx-aarch64-apple-darwin.tar.gz` |
+| macOS Intel         | `ffx-x86_64-apple-darwin.tar.gz`  |
 
 ```bash
 # Example: Download and install manually

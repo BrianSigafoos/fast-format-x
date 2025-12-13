@@ -91,6 +91,12 @@ impl Config {
 mod tests {
     use super::*;
 
+    fn parse_and_validate(yaml: &str) -> Result<Config> {
+        let config: Config = serde_yaml::from_str(yaml)?;
+        config.validate()?;
+        Ok(config)
+    }
+
     #[test]
     fn test_parse_valid_config() {
         let yaml = r#"
@@ -102,7 +108,7 @@ tools:
     cmd: npx
     args: [prettier, --write]
 "#;
-        let config: Config = serde_yaml::from_str(yaml).unwrap();
+        let config = parse_and_validate(yaml).unwrap();
         assert_eq!(config.version, 1);
         assert_eq!(config.tools.len(), 1);
         assert_eq!(config.tools[0].name, "prettier");
@@ -120,7 +126,120 @@ tools:
     include: ["**/*.rs"]
     cmd: echo
 "#;
-        let config: Config = serde_yaml::from_str(yaml).unwrap();
+        let config = parse_and_validate(yaml).unwrap();
         assert!(config.tools[0].exclude.is_empty());
+    }
+
+    #[test]
+    fn test_args_defaults_to_empty() {
+        let yaml = r#"
+version: 1
+tools:
+  - name: test
+    include: ["**/*.rs"]
+    cmd: echo
+"#;
+        let config = parse_and_validate(yaml).unwrap();
+        assert!(config.tools[0].args.is_empty());
+    }
+
+    #[test]
+    fn test_invalid_version() {
+        let yaml = r#"
+version: 2
+tools:
+  - name: test
+    include: ["**/*.rs"]
+    cmd: echo
+"#;
+        let result = parse_and_validate(yaml);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("Unsupported config version"));
+        assert!(err.contains("2"));
+    }
+
+    #[test]
+    fn test_empty_tools() {
+        let yaml = r#"
+version: 1
+tools: []
+"#;
+        let result = parse_and_validate(yaml);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("at least one tool"));
+    }
+
+    #[test]
+    fn test_empty_tool_name() {
+        let yaml = r#"
+version: 1
+tools:
+  - name: ""
+    include: ["**/*.rs"]
+    cmd: echo
+"#;
+        let result = parse_and_validate(yaml);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("name cannot be empty"));
+    }
+
+    #[test]
+    fn test_empty_include() {
+        let yaml = r#"
+version: 1
+tools:
+  - name: test
+    include: []
+    cmd: echo
+"#;
+        let result = parse_and_validate(yaml);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("at least one include pattern"));
+    }
+
+    #[test]
+    fn test_empty_cmd() {
+        let yaml = r#"
+version: 1
+tools:
+  - name: test
+    include: ["**/*.rs"]
+    cmd: ""
+"#;
+        let result = parse_and_validate(yaml);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("must have a cmd"));
+    }
+
+    #[test]
+    fn test_multiple_tools() {
+        let yaml = r#"
+version: 1
+tools:
+  - name: rust
+    include: ["**/*.rs"]
+    cmd: cargo
+    args: [fmt, --]
+  - name: prettier
+    include: ["**/*.md", "**/*.json"]
+    exclude: ["node_modules/**"]
+    cmd: npx
+    args: [prettier, --write]
+"#;
+        let config = parse_and_validate(yaml).unwrap();
+        assert_eq!(config.tools.len(), 2);
+        assert_eq!(config.tools[0].name, "rust");
+        assert_eq!(config.tools[1].name, "prettier");
+        assert_eq!(config.tools[1].exclude, vec!["node_modules/**"]);
     }
 }
