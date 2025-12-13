@@ -150,7 +150,9 @@ mod tests {
     #[test]
     fn test_command_exists_false() {
         // This command should not exist
-        assert!(!command_exists("this_command_definitely_does_not_exist_12345"));
+        assert!(!command_exists(
+            "this_command_definitely_does_not_exist_12345"
+        ));
     }
 
     #[test]

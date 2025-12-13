@@ -167,7 +167,10 @@ tools: []
 "#;
         let result = parse_and_validate(yaml);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("at least one tool"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("at least one tool"));
     }
 
     #[test]
@@ -181,7 +184,10 @@ tools:
 "#;
         let result = parse_and_validate(yaml);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("name cannot be empty"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("name cannot be empty"));
     }
 
     #[test]
