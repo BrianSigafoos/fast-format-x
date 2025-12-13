@@ -5,6 +5,7 @@ mod matcher;
 
 use anyhow::{Context, Result};
 use clap::Parser;
+use colored::Colorize;
 use rayon::prelude::*;
 use std::path::Path;
 use std::process::ExitCode;
@@ -29,7 +30,8 @@ Examples:
 Exit codes:
   0  Success
   1  Formatter failure
-  2  Config/general error")]
+  2  Config/general error
+  3  Missing executable")]
 struct Cli {
     /// Run on all files matching config patterns
     #[arg(long)]
@@ -43,9 +45,9 @@ struct Cli {
     #[arg(long, default_value = ".fast-format-x.yaml")]
     config: String,
 
-    /// Max parallel processes
-    #[arg(long, short = 'j', default_value_t = num_cpus())]
-    jobs: usize,
+    /// Max parallel processes (minimum 1)
+    #[arg(long, short = 'j', default_value_t = num_cpus(), value_parser = clap::value_parser!(u64).range(1..))]
+    jobs: u64,
 
     /// Stop on first failure
     #[arg(long)]
@@ -86,7 +88,10 @@ fn run() -> Result<RunOutcome> {
     let cli = Cli::parse();
 
     // Configure parallelism
-    exec::configure_parallelism(cli.jobs)?;
+    exec::configure_parallelism(cli.jobs as usize)?;
+
+    // Get repo root to run formatters from (ensures paths resolve correctly from subdirs)
+    let repo_root = git::repo_root().context("Failed to find git repository root")?;
 
     // Load config
     let config_path = Path::new(&cli.config);
@@ -94,6 +99,7 @@ fn run() -> Result<RunOutcome> {
         .with_context(|| format!("Failed to load config from {}", cli.config))?;
 
     if cli.verbose {
+        eprintln!("repo root: {}", repo_root.display());
         eprintln!("config: {} ({} tools)", cli.config, config.tools.len());
         eprintln!("jobs: {}", cli.jobs);
         eprintln!();
@@ -146,7 +152,13 @@ fn run() -> Result<RunOutcome> {
             .map(|p| p.display().to_string())
             .collect::<Vec<_>>()
             .join(", ");
-        println!("- {} ({} files): {}", m.tool.name, m.files.len(), file_list);
+        println!(
+            "- {} ({} {}): {}",
+            m.tool.name,
+            m.files.len(),
+            pluralize_files(m.files.len()),
+            file_list
+        );
     }
     println!();
 
@@ -175,7 +187,7 @@ fn run() -> Result<RunOutcome> {
                 return None;
             }
 
-            let result = exec::run_tool(m.tool, &m.files);
+            let result = exec::run_tool(m.tool, &m.files, cli.verbose, &repo_root);
 
             if let Ok(ref r) = result {
                 if !r.success {
@@ -199,8 +211,18 @@ fn run() -> Result<RunOutcome> {
 
         match result {
             Ok(tool_result) => {
-                let status = if tool_result.success { "✓" } else { "✗" };
-                println!("{} [{}] {} files", status, name, file_count);
+                let status = if tool_result.success {
+                    "✓".green()
+                } else {
+                    "✗".red()
+                };
+                println!(
+                    "{} [{}] {} {}",
+                    status,
+                    name.cyan(),
+                    file_count,
+                    pluralize_files(file_count)
+                );
 
                 for batch in &tool_result.batches {
                     if cli.verbose {
@@ -223,7 +245,7 @@ fn run() -> Result<RunOutcome> {
                 }
             }
             Err(e) => {
-                println!("✗ [{}] error", name);
+                println!("{} [{}] error", "✗".red(), name.cyan());
                 eprintln!("  {e:#}");
                 all_success = false;
             }
@@ -235,12 +257,18 @@ fn run() -> Result<RunOutcome> {
     println!();
     if all_success {
         println!(
-            "Formatted {} files in {:.2}s",
+            "{} {} {} in {:.2}s",
+            "Formatted".green(),
             total_files,
+            pluralize_files(total_files),
             elapsed.as_secs_f64()
         );
     } else {
-        println!("Some formatters failed ({:.2}s)", elapsed.as_secs_f64());
+        println!(
+            "{} ({:.2}s)",
+            "Some formatters failed".red(),
+            elapsed.as_secs_f64()
+        );
     }
 
     Ok(RunOutcome {
@@ -249,10 +277,19 @@ fn run() -> Result<RunOutcome> {
     })
 }
 
-fn num_cpus() -> usize {
+fn num_cpus() -> u64 {
     std::thread::available_parallelism()
-        .map(|n| n.get())
+        .map(|n| n.get() as u64)
         .unwrap_or(4)
+}
+
+/// Return "file" or "files" based on count for correct grammar.
+fn pluralize_files(count: usize) -> &'static str {
+    if count == 1 {
+        "file"
+    } else {
+        "files"
+    }
 }
 
 #[cfg(test)]
