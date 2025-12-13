@@ -190,3 +190,22 @@ cargo clippy
 cargo install cargo-watch  # one-time
 cargo watch -x check
 ```
+
+### Releasing
+
+Releases are managed with [cargo-release](https://github.com/crate-ci/cargo-release). This ensures `Cargo.toml` version stays in sync with git tags.
+
+```bash
+# Install cargo-release (one-time)
+cargo install cargo-release
+
+# Release a new version (updates Cargo.toml, commits, tags, and pushes)
+cargo release patch  # 0.1.3 → 0.1.4
+cargo release minor  # 0.1.3 → 0.2.0
+cargo release major  # 0.1.3 → 1.0.0
+
+# Dry run to see what will happen
+cargo release patch --dry-run
+```
+
+The push triggers the GitHub Actions release workflow, which builds binaries for all platforms and creates a GitHub Release.
