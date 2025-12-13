@@ -1,0 +1,22 @@
+#!/bin/sh
+# Pre-commit hook that runs ffx to format staged files.
+# Install with: git config core.hooksPath .githooks
+
+set -e
+
+# Check if ffx is installed
+if ! command -v ffx >/dev/null 2>&1; then
+    echo "ffx not found. Install it with:"
+    echo "  curl -LsSf https://raw.githubusercontent.com/BrianSigafoos/fast-format-x/main/install.sh | bash"
+    exit 1
+fi
+
+# Run ffx on staged files
+ffx
+
+# Re-stage any files that were modified by formatters
+git diff --name-only | while read -r file; do
+    if git diff --cached --name-only | grep -q "^$file$"; then
+        git add "$file"
+    fi
+done
