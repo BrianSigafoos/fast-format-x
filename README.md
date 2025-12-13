@@ -65,6 +65,20 @@ ffx --fail-fast
 ffx --verbose
 ```
 
+### Pre-commit Hook
+
+Run ffx automatically before every commit:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+This uses the pre-commit hook in `.githooks/pre-commit` that:
+1. Runs `ffx` on staged files
+2. Re-stages any files modified by formatters
+
+To set this up in a new repo, copy the `.githooks/` directory and run the config command above.
+
 ### AI Agent Integration
 
 Add to your `AGENTS.md` or Cursor rules to save LLM tokens on formatting:
