@@ -55,6 +55,13 @@ fn test_version_flag() {
 fn test_missing_config_file() {
     let dir = tempfile::tempdir().unwrap();
 
+    // Initialize git repo (required since we check repo root first)
+    Command::new("git")
+        .args(["init"])
+        .current_dir(dir.path())
+        .output()
+        .expect("Failed to init git");
+
     let output = Command::new(ffx_binary())
         .current_dir(dir.path())
         .arg("--config")
@@ -80,6 +87,13 @@ tools:
     cmd: echo
 "#;
     let dir = setup_test_dir(config);
+
+    // Initialize git repo (required since we check repo root first)
+    Command::new("git")
+        .args(["init"])
+        .current_dir(dir.path())
+        .output()
+        .expect("Failed to init git");
 
     let output = Command::new(ffx_binary())
         .current_dir(dir.path())
@@ -264,7 +278,7 @@ tools:
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("[echo-test]"));
-    assert!(stdout.contains("1 files")); // "1 files" in output
+    assert!(stdout.contains("1 file")); // Correct grammar: "1 file" not "1 files"
     assert!(stdout.contains("Formatted"));
 }
 

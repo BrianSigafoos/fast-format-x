@@ -77,6 +77,7 @@ git config core.hooksPath .githooks
 ```
 
 This uses the pre-commit hook in `.githooks/pre-commit` that:
+
 1. Runs `ffx` on staged files
 2. Re-stages any files modified by formatters
 

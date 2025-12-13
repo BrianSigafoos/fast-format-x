@@ -9,8 +9,8 @@ use std::process::Command;
 
 /// Get the root directory of the git repository.
 ///
-/// Used for --all mode to walk the repo from root.
-#[allow(dead_code)]
+/// Used to run formatters from the repo root, ensuring paths resolve correctly
+/// even when ffx is invoked from a subdirectory.
 pub fn repo_root() -> Result<PathBuf> {
     let output = Command::new("git")
         .args(["rev-parse", "--show-toplevel"])

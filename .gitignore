@@ -9,10 +9,7 @@
 .idea/
 *.swp
 *.swo
-.vscode/
-!.vscode/settings.json
-!.vscode/extensions.json
-
+  
 # macOS
 .DS_Store
 

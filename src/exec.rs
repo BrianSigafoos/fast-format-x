@@ -9,7 +9,8 @@ use std::path::Path;
 use std::process::{Command, Output};
 
 /// Maximum files per command invocation to avoid arg length limits.
-const MAX_FILES_PER_BATCH: usize = 50;
+/// 200 is safe for most systems (ARG_MAX is typically 256KB-2MB).
+const MAX_FILES_PER_BATCH: usize = 200;
 
 /// Result of running a single batch.
 #[derive(Debug)]
@@ -37,7 +38,14 @@ pub struct ToolResult {
 ///
 /// Files are batched to avoid command-line length limits.
 /// Batches run in parallel using rayon.
-pub fn run_tool(tool: &Tool, files: &[&Path]) -> Result<ToolResult> {
+/// When `verbose` is true, command strings are captured for logging.
+/// `work_dir` sets the working directory for the formatter commands.
+pub fn run_tool(
+    tool: &Tool,
+    files: &[&Path],
+    verbose: bool,
+    work_dir: &Path,
+) -> Result<ToolResult> {
     // Create batches
     let batches: Vec<Vec<&Path>> = files
         .chunks(MAX_FILES_PER_BATCH)
@@ -47,7 +55,7 @@ pub fn run_tool(tool: &Tool, files: &[&Path]) -> Result<ToolResult> {
     // Run batches in parallel
     let results: Vec<Result<BatchResult>> = batches
         .par_iter()
-        .map(|batch| run_batch(tool, batch))
+        .map(|batch| run_batch(tool, batch, verbose, work_dir))
         .collect();
 
     // Collect results, propagating any errors
@@ -69,8 +77,11 @@ pub fn run_tool(tool: &Tool, files: &[&Path]) -> Result<ToolResult> {
 }
 
 /// Run a single batch of files through a formatter.
-fn run_batch(tool: &Tool, files: &[&Path]) -> Result<BatchResult> {
+fn run_batch(tool: &Tool, files: &[&Path], verbose: bool, work_dir: &Path) -> Result<BatchResult> {
     let mut cmd = Command::new(&tool.cmd);
+
+    // Run from repo root so paths resolve correctly
+    cmd.current_dir(work_dir);
 
     // Add configured arguments
     cmd.args(&tool.args);
@@ -80,17 +91,21 @@ fn run_batch(tool: &Tool, files: &[&Path]) -> Result<BatchResult> {
         cmd.arg(file);
     }
 
-    // Build command string for logging
-    let command = format!(
-        "{} {} {}",
-        tool.cmd,
-        tool.args.join(" "),
-        files
-            .iter()
-            .map(|p| p.to_string_lossy())
-            .collect::<Vec<_>>()
-            .join(" ")
-    );
+    // Only build command string when verbose (avoids allocation overhead)
+    let command = if verbose {
+        format!(
+            "{} {} {}",
+            tool.cmd,
+            tool.args.join(" "),
+            files
+                .iter()
+                .map(|p| p.to_string_lossy())
+                .collect::<Vec<_>>()
+                .join(" ")
+        )
+    } else {
+        String::new()
+    };
 
     let output: Output = cmd
         .output()
@@ -107,13 +122,9 @@ fn run_batch(tool: &Tool, files: &[&Path]) -> Result<BatchResult> {
     })
 }
 
-/// Check if a command exists in PATH.
+/// Check if a command exists in PATH (cross-platform).
 pub fn command_exists(cmd: &str) -> bool {
-    Command::new("which")
-        .arg(cmd)
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
+    which::which(cmd).is_ok()
 }
 
 /// Configure rayon's thread pool size.
@@ -160,8 +171,9 @@ mod tests {
         let tool = make_tool("test", "echo", &["hello"]);
         let files: Vec<PathBuf> = vec!["file1.txt".into(), "file2.txt".into()];
         let file_refs: Vec<&Path> = files.iter().map(|p| p.as_path()).collect();
+        let work_dir = std::env::current_dir().unwrap();
 
-        let result = run_tool(&tool, &file_refs).unwrap();
+        let result = run_tool(&tool, &file_refs, false, &work_dir).unwrap();
 
         assert!(result.success);
         assert_eq!(result.batches.len(), 1);
@@ -176,8 +188,9 @@ mod tests {
         let tool = make_tool("fail", "false", &[]);
         let files: Vec<PathBuf> = vec!["file.txt".into()];
         let file_refs: Vec<&Path> = files.iter().map(|p| p.as_path()).collect();
+        let work_dir = std::env::current_dir().unwrap();
 
-        let result = run_tool(&tool, &file_refs).unwrap();
+        let result = run_tool(&tool, &file_refs, false, &work_dir).unwrap();
 
         assert!(!result.success);
         assert!(!result.batches[0].success);
@@ -188,8 +201,9 @@ mod tests {
         let tool = make_tool("bad", "nonexistent_command_xyz", &[]);
         let files: Vec<PathBuf> = vec!["file.txt".into()];
         let file_refs: Vec<&Path> = files.iter().map(|p| p.as_path()).collect();
+        let work_dir = std::env::current_dir().unwrap();
 
-        let result = run_tool(&tool, &file_refs);
+        let result = run_tool(&tool, &file_refs, false, &work_dir);
 
         // Should return an error, not a failed result
         assert!(result.is_err());
@@ -199,28 +213,43 @@ mod tests {
     fn test_batching_large_file_list() {
         let tool = make_tool("test", "echo", &[]);
 
-        // Create more files than MAX_FILES_PER_BATCH (50)
-        let files: Vec<PathBuf> = (0..120).map(|i| format!("file{}.txt", i).into()).collect();
+        // Create more files than MAX_FILES_PER_BATCH (200)
+        let files: Vec<PathBuf> = (0..450).map(|i| format!("file{}.txt", i).into()).collect();
         let file_refs: Vec<&Path> = files.iter().map(|p| p.as_path()).collect();
+        let work_dir = std::env::current_dir().unwrap();
 
-        let result = run_tool(&tool, &file_refs).unwrap();
+        let result = run_tool(&tool, &file_refs, false, &work_dir).unwrap();
 
         assert!(result.success);
-        // Should have 3 batches: 50 + 50 + 20
+        // Should have 3 batches: 200 + 200 + 50
         assert_eq!(result.batches.len(), 3);
     }
 
     #[test]
-    fn test_batch_result_contains_command() {
+    fn test_batch_result_contains_command_when_verbose() {
         let tool = make_tool("test", "echo", &["--flag"]);
         let files: Vec<PathBuf> = vec!["myfile.rs".into()];
         let file_refs: Vec<&Path> = files.iter().map(|p| p.as_path()).collect();
+        let work_dir = std::env::current_dir().unwrap();
 
-        let result = run_tool(&tool, &file_refs).unwrap();
+        let result = run_tool(&tool, &file_refs, true, &work_dir).unwrap();
 
         let cmd = &result.batches[0].command;
         assert!(cmd.contains("echo"));
         assert!(cmd.contains("--flag"));
         assert!(cmd.contains("myfile.rs"));
+    }
+
+    #[test]
+    fn test_batch_result_empty_command_when_not_verbose() {
+        let tool = make_tool("test", "echo", &["--flag"]);
+        let files: Vec<PathBuf> = vec!["myfile.rs".into()];
+        let file_refs: Vec<&Path> = files.iter().map(|p| p.as_path()).collect();
+        let work_dir = std::env::current_dir().unwrap();
+
+        let result = run_tool(&tool, &file_refs, false, &work_dir).unwrap();
+
+        // Command should be empty when not verbose
+        assert!(result.batches[0].command.is_empty());
     }
 }
