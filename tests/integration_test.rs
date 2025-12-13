@@ -401,3 +401,61 @@ tools:
     assert!(stdout.contains("✗")); // Failure marker
     assert!(stdout.contains("Some formatters failed"));
 }
+
+#[test]
+fn test_all_flag_from_subdirectory() {
+    // Regression test: running ffx from a subdirectory should find files correctly.
+    // The issue was that git ls-files returns paths relative to CWD, but formatters
+    // run from repo root, causing path mismatches.
+    //
+    // We use 'cat' as the formatter because it will fail if the file path is wrong,
+    // unlike 'echo' which would succeed with any argument.
+    let config = r#"
+version: 1
+tools:
+  - name: cat-test
+    include: ["**/*.txt"]
+    cmd: cat
+"#;
+    let dir = setup_test_dir(config);
+
+    // Initialize git repo
+    Command::new("git")
+        .args(["init"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    // Create a subdirectory with a file
+    let subdir = dir.path().join("subdir");
+    fs::create_dir(&subdir).unwrap();
+    fs::write(subdir.join("test.txt"), "hello").unwrap();
+
+    // Add the file (so git ls-files finds it)
+    Command::new("git")
+        .args(["add", "."])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    // Run ffx from the subdirectory, pointing to config in repo root
+    let config_path = dir.path().join(".fast-format-x.yaml");
+    let output = Command::new(ffx_binary())
+        .current_dir(&subdir)
+        .args(["--all", "--config"])
+        .arg(&config_path)
+        .output()
+        .expect("Failed to run ffx");
+
+    assert!(
+        output.status.success(),
+        "ffx should succeed from subdirectory. stdout: {}, stderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("[cat-test]"));
+    assert!(stdout.contains("1 file"));
+    assert!(stdout.contains("Formatted"));
+}
