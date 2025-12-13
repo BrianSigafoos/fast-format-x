@@ -13,14 +13,15 @@ use std::time::Instant;
 
 use config::Config;
 
-/// Fast parallel formatter runner for staged files
+/// Fast parallel formatter runner for changed files
 #[derive(Parser, Debug)]
 #[command(name = "ffx")]
 #[command(version)]
-#[command(about = "Fast parallel formatter runner for staged files")]
+#[command(about = "Fast parallel formatter runner for changed files")]
 #[command(after_help = "\
 Examples:
-  ffx                Format staged files
+  ffx                Format changed files
+  ffx --staged       Format staged files only
   ffx --all          Format all matching files
   ffx --verbose      Show commands being run
   ffx -j4            Limit to 4 parallel jobs
@@ -33,6 +34,10 @@ struct Cli {
     /// Run on all files matching config patterns
     #[arg(long)]
     all: bool,
+
+    /// Run only on staged files
+    #[arg(long)]
+    staged: bool,
 
     /// Path to config file
     #[arg(long, default_value = ".fast-format-x.yaml")]
@@ -95,18 +100,25 @@ fn run() -> Result<RunOutcome> {
     }
 
     // Get files to format
-    let files = if cli.all {
-        git::all_files().context("Failed to get all files")?
+    let (files, file_source) = if cli.all {
+        (
+            git::all_files().context("Failed to get all files")?,
+            "all tracked files",
+        )
+    } else if cli.staged {
+        (
+            git::staged_files().context("Failed to get staged files")?,
+            "staged files",
+        )
     } else {
-        git::staged_files().context("Failed to get staged files")?
+        (
+            git::changed_files().context("Failed to get changed files")?,
+            "changed files",
+        )
     };
 
     if files.is_empty() {
-        if cli.all {
-            println!("No files found.");
-        } else {
-            println!("No staged files.");
-        }
+        println!("No {file_source}.");
         return Ok(RunOutcome {
             success: true,
             missing_executable: false,
@@ -124,6 +136,19 @@ fn run() -> Result<RunOutcome> {
             missing_executable: false,
         });
     }
+
+    // Show planned work
+    println!("Running formatters:");
+    for m in &matches {
+        let file_list = m
+            .files
+            .iter()
+            .map(|p| p.display().to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+        println!("- {} ({} files): {}", m.tool.name, m.files.len(), file_list);
+    }
+    println!();
 
     // Check that all required commands exist
     for m in &matches {

@@ -3,6 +3,7 @@
 //! Provides functions to discover staged files and find the repo root.
 
 use anyhow::{Context, Result};
+use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -84,6 +85,55 @@ pub fn staged_files() -> Result<Vec<PathBuf>> {
     Ok(files)
 }
 
+/// Get list of changed files (staged, unstaged, and untracked).
+///
+/// Excludes deleted files and returns paths relative to the repo root.
+pub fn changed_files() -> Result<Vec<PathBuf>> {
+    let output = Command::new("git")
+        .args(["status", "--porcelain=v1", "--untracked-files=normal"])
+        .output()
+        .context("Failed to run git status")?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        anyhow::bail!("git status failed: {}", stderr.trim());
+    }
+
+    let stdout = String::from_utf8(output.stdout).context("Git output was not valid UTF-8")?;
+
+    // Use BTreeSet for deterministic ordering and deduplication
+    let mut files: BTreeSet<PathBuf> = BTreeSet::new();
+
+    for line in stdout.lines() {
+        if line.len() < 3 {
+            continue;
+        }
+
+        let status = &line[..2];
+        // Skip deleted files (either staged or unstaged)
+        if status.contains('D') {
+            continue;
+        }
+
+        let path_part = line[3..].trim();
+
+        // For renames, git status outputs "old -> new"; take the new path
+        let path_str = if let Some(idx) = path_part.rfind(" -> ") {
+            &path_part[idx + 4..]
+        } else {
+            path_part
+        };
+
+        if path_str.is_empty() {
+            continue;
+        }
+
+        files.insert(PathBuf::from(path_str));
+    }
+
+    Ok(files.into_iter().collect())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -104,6 +154,13 @@ mod tests {
         // It should at least not error, even if no files are staged
         let result = staged_files();
         assert!(result.is_ok(), "Should get staged files: {:?}", result);
+    }
+
+    #[test]
+    fn test_changed_files_returns_vec() {
+        // This test only works when run inside a git repo
+        let result = changed_files();
+        assert!(result.is_ok(), "Should get changed files: {:?}", result);
     }
 
     #[test]
