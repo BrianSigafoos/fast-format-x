@@ -53,13 +53,7 @@ struct Cli {
 
 fn main() -> ExitCode {
     match run() {
-        Ok(success) => {
-            if success {
-                ExitCode::SUCCESS
-            } else {
-                ExitCode::from(1)
-            }
-        }
+        Ok(outcome) => exit_code_from_outcome(&outcome),
         Err(e) => {
             eprintln!("error: {e:#}");
             ExitCode::from(2)
@@ -67,7 +61,22 @@ fn main() -> ExitCode {
     }
 }
 
-fn run() -> Result<bool> {
+fn exit_code_from_outcome(outcome: &RunOutcome) -> ExitCode {
+    if outcome.success {
+        ExitCode::SUCCESS
+    } else if outcome.missing_executable {
+        ExitCode::from(3)
+    } else {
+        ExitCode::from(1)
+    }
+}
+
+struct RunOutcome {
+    success: bool,
+    missing_executable: bool,
+}
+
+fn run() -> Result<RunOutcome> {
     let start = Instant::now();
     let cli = Cli::parse();
 
@@ -98,7 +107,10 @@ fn run() -> Result<bool> {
         } else {
             println!("No staged files.");
         }
-        return Ok(true);
+        return Ok(RunOutcome {
+            success: true,
+            missing_executable: false,
+        });
     }
 
     // Match files to tools
@@ -107,7 +119,10 @@ fn run() -> Result<bool> {
 
     if matches.is_empty() {
         println!("No files matched any tool patterns.");
-        return Ok(true);
+        return Ok(RunOutcome {
+            success: true,
+            missing_executable: false,
+        });
     }
 
     // Check that all required commands exist
@@ -117,7 +132,10 @@ fn run() -> Result<bool> {
                 "error: command '{}' not found (required by tool '{}')",
                 m.tool.cmd, m.tool.name
             );
-            return Ok(false);
+            return Ok(RunOutcome {
+                success: false,
+                missing_executable: true,
+            });
         }
     }
 
@@ -200,11 +218,49 @@ fn run() -> Result<bool> {
         println!("Some formatters failed ({:.2}s)", elapsed.as_secs_f64());
     }
 
-    Ok(all_success)
+    Ok(RunOutcome {
+        success: all_success,
+        missing_executable: false,
+    })
 }
 
 fn num_cpus() -> usize {
     std::thread::available_parallelism()
         .map(|n| n.get())
         .unwrap_or(4)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn exit_code_success_when_all_pass() {
+        let outcome = RunOutcome {
+            success: true,
+            missing_executable: false,
+        };
+
+        assert_eq!(exit_code_from_outcome(&outcome), ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn exit_code_missing_executable_uses_code_three() {
+        let outcome = RunOutcome {
+            success: false,
+            missing_executable: true,
+        };
+
+        assert_eq!(exit_code_from_outcome(&outcome), ExitCode::from(3));
+    }
+
+    #[test]
+    fn exit_code_failure_without_missing_executable_uses_one() {
+        let outcome = RunOutcome {
+            success: false,
+            missing_executable: false,
+        };
+
+        assert_eq!(exit_code_from_outcome(&outcome), ExitCode::from(1));
+    }
 }

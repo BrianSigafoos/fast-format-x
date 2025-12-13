@@ -270,7 +270,7 @@ tools:
 
     // Should fail because command doesn't exist
     assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(output.status.code(), Some(3));
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("not found"));
