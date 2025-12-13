@@ -1,6 +1,6 @@
 [package]
 name = "ffx"
-version = "0.1.0"
+version = "0.1.3"
 edition = "2021"
 description = "Fast parallel formatter runner for staged files"
 license = "MIT"
