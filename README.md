@@ -4,19 +4,39 @@ A blazing fast CLI that runs formatter commands on staged files in parallel. Wri
 
 ## Installation
 
-### Prerequisites
+### Quick Install (Recommended)
 
-Install Rust if you don't have it:
+Install the latest release with a single command:
 
 ```bash
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-source ~/.cargo/env
+curl -LsSf https://raw.githubusercontent.com/BrianSigafoos/fast-format-x/main/install.sh | bash
 ```
 
-### Install
+This downloads the prebuilt binary for your platform (macOS Apple Silicon or Intel).
+
+### Manual Download
+
+Download binaries directly from [GitHub Releases](https://github.com/BrianSigafoos/fast-format-x/releases):
+
+| Platform           | Download                                                                                   |
+| ------------------ | ------------------------------------------------------------------------------------------ |
+| macOS Apple Silicon | `ffx-aarch64-apple-darwin.tar.gz`                                                         |
+| macOS Intel        | `ffx-x86_64-apple-darwin.tar.gz`                                                          |
 
 ```bash
-git clone https://github.com/briansigafoos/fast-format-x.git
+# Example: Download and install manually
+curl -LO https://github.com/BrianSigafoos/fast-format-x/releases/latest/download/ffx-aarch64-apple-darwin.tar.gz
+tar xzf ffx-aarch64-apple-darwin.tar.gz
+mv ffx ~/.local/bin/  # or ~/.cargo/bin/ if you have Rust installed
+```
+
+### Install from Source
+
+For contributors or if you prefer building from source:
+
+```bash
+# Requires Rust: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+git clone https://github.com/BrianSigafoos/fast-format-x.git
 cd fast-format-x
 cargo install --path .
 ```

@@ -4,6 +4,24 @@ version = "0.1.0"
 edition = "2021"
 description = "Fast parallel formatter runner for staged files"
 license = "MIT"
+repository = "https://github.com/BrianSigafoos/fast-format-x"
+homepage = "https://github.com/BrianSigafoos/fast-format-x"
+readme = "README.md"
+
+# Config for 'cargo dist'
+[workspace.metadata.dist]
+# The preferred cargo-dist version to use in CI
+cargo-dist-version = "0.28.0"
+# CI backends to support
+ci = "github"
+# The installers to generate for each app
+installers = ["shell"]
+# Target platforms to build apps for (macOS only for now)
+targets = ["aarch64-apple-darwin", "x86_64-apple-darwin"]
+# Path that installers should place binaries in
+install-path = "CARGO_HOME"
+# Whether to install an updater program
+install-updater = false
 
 [[bin]]
 name = "ffx"
