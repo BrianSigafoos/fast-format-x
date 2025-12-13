@@ -7,6 +7,7 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use colored::Colorize;
 use rayon::prelude::*;
+use std::io::{stdout, IsTerminal, Write};
 use std::path::Path;
 use std::process::ExitCode;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -143,25 +144,6 @@ fn run() -> Result<RunOutcome> {
         });
     }
 
-    // Show planned work
-    println!("Running formatters:");
-    for m in &matches {
-        let file_list = m
-            .files
-            .iter()
-            .map(|p| p.display().to_string())
-            .collect::<Vec<_>>()
-            .join(", ");
-        println!(
-            "- {} ({} {}): {}",
-            m.tool.name,
-            m.files.len(),
-            pluralize_files(m.files.len()),
-            file_list
-        );
-    }
-    println!();
-
     // Check that all required commands exist
     for m in &matches {
         if !exec::command_exists(&m.tool.cmd) {
@@ -173,6 +155,40 @@ fn run() -> Result<RunOutcome> {
                 success: false,
                 missing_executable: true,
             });
+        }
+    }
+
+    // Show planned work - verbose shows file list, non-verbose shows running indicators
+    let is_tty = stdout().is_terminal();
+    println!("Running formatters:");
+
+    if cli.verbose {
+        for m in &matches {
+            let file_list = m
+                .files
+                .iter()
+                .map(|p| p.display().to_string())
+                .collect::<Vec<_>>()
+                .join(", ");
+            println!(
+                "- {} ({} {}): {}",
+                m.tool.name,
+                m.files.len(),
+                pluralize_files(m.files.len()),
+                file_list
+            );
+        }
+        println!();
+    } else if is_tty {
+        // Print running indicators that we'll update in-place
+        for m in &matches {
+            println!(
+                "{} [{}] {} {}",
+                "⋯".yellow(),
+                m.tool.name.cyan(),
+                m.files.len(),
+                pluralize_files(m.files.len())
+            );
         }
     }
 
@@ -203,6 +219,13 @@ fn run() -> Result<RunOutcome> {
     let mut sorted_results = results;
     sorted_results.sort_by(|a, b| a.0.cmp(&b.0));
 
+    // Move cursor back up to overwrite running indicators (non-verbose TTY only)
+    if !cli.verbose && is_tty {
+        // Move cursor up by the number of tools
+        print!("\x1b[{}A", matches.len());
+        let _ = stdout().flush();
+    }
+
     let mut all_success = true;
     let mut total_files = 0;
 
@@ -216,21 +239,34 @@ fn run() -> Result<RunOutcome> {
                 } else {
                     "✗".red()
                 };
-                println!(
-                    "{} [{}] {} {}",
-                    status,
-                    name.cyan(),
-                    file_count,
-                    pluralize_files(file_count)
-                );
+
+                if !cli.verbose && is_tty {
+                    // Overwrite the line and clear to end
+                    print!(
+                        "\r{} [{}] {} {}\x1b[K\n",
+                        status,
+                        name.cyan(),
+                        file_count,
+                        pluralize_files(file_count)
+                    );
+                    let _ = stdout().flush();
+                } else {
+                    println!(
+                        "{} [{}] {} {}",
+                        status,
+                        name.cyan(),
+                        file_count,
+                        pluralize_files(file_count)
+                    );
+                }
 
                 for batch in &tool_result.batches {
                     if cli.verbose {
                         eprintln!("  $ {}", batch.command);
-                    }
-                    if !batch.stdout.is_empty() {
-                        for line in batch.stdout.lines() {
-                            println!("  {}", line);
+                        if !batch.stdout.is_empty() {
+                            for line in batch.stdout.lines() {
+                                println!("  {}", line);
+                            }
                         }
                     }
                     if !batch.stderr.is_empty() && (cli.verbose || !batch.success) {
@@ -245,7 +281,12 @@ fn run() -> Result<RunOutcome> {
                 }
             }
             Err(e) => {
-                println!("{} [{}] error", "✗".red(), name.cyan());
+                if !cli.verbose && is_tty {
+                    print!("\r{} [{}] error\x1b[K\n", "✗".red(), name.cyan());
+                    let _ = stdout().flush();
+                } else {
+                    println!("{} [{}] error", "✗".red(), name.cyan());
+                }
                 eprintln!("  {e:#}");
                 all_success = false;
             }
