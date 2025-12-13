@@ -5,12 +5,14 @@
 use crate::config::Tool;
 use anyhow::{Context, Result};
 use rayon::prelude::*;
+use std::ffi::OsStr;
 use std::path::Path;
 use std::process::{Command, Output};
 
-/// Maximum files per command invocation to avoid arg length limits.
-/// 200 is safe for most systems (ARG_MAX is typically 256KB-2MB).
-const MAX_FILES_PER_BATCH: usize = 200;
+/// Maximum bytes per command invocation to avoid ARG_MAX limits.
+/// 128KB is safe for most systems (macOS ARG_MAX is 256KB, Linux is 2MB+).
+/// This leaves headroom for environment variables.
+const MAX_BATCH_BYTES: usize = 128 * 1024;
 
 /// Result of running a single batch.
 #[derive(Debug)]
@@ -34,9 +36,53 @@ pub struct ToolResult {
     pub batches: Vec<BatchResult>,
 }
 
+/// Calculate the byte size of an OS string (for arg length estimation).
+fn arg_bytes(s: &OsStr) -> usize {
+    // Use encoded length + 1 for null terminator
+    s.len() + 1
+}
+
+/// Create batches of files that fit within MAX_BATCH_BYTES.
+///
+/// Each batch's total arg bytes (cmd + args + files) stays under the limit.
+fn create_batches<'a>(tool: &Tool, files: &[&'a Path]) -> Vec<Vec<&'a Path>> {
+    // Calculate fixed overhead: command + configured args
+    let base_bytes: usize = arg_bytes(OsStr::new(&tool.cmd))
+        + tool
+            .args
+            .iter()
+            .map(|a| arg_bytes(OsStr::new(a)))
+            .sum::<usize>();
+
+    let mut batches: Vec<Vec<&'a Path>> = Vec::new();
+    let mut current_batch: Vec<&'a Path> = Vec::new();
+    let mut current_bytes = base_bytes;
+
+    for file in files {
+        let file_bytes = arg_bytes(file.as_os_str());
+
+        // If adding this file would exceed limit, start a new batch
+        // (unless batch is empty - we must include at least one file)
+        if !current_batch.is_empty() && current_bytes + file_bytes > MAX_BATCH_BYTES {
+            batches.push(std::mem::take(&mut current_batch));
+            current_bytes = base_bytes;
+        }
+
+        current_batch.push(file);
+        current_bytes += file_bytes;
+    }
+
+    // Don't forget the last batch
+    if !current_batch.is_empty() {
+        batches.push(current_batch);
+    }
+
+    batches
+}
+
 /// Run a formatter tool on a set of files.
 ///
-/// Files are batched to avoid command-line length limits.
+/// Files are batched by total argument bytes to avoid ARG_MAX limits.
 /// Batches run in parallel using rayon.
 /// When `verbose` is true, command strings are captured for logging.
 /// `work_dir` sets the working directory for the formatter commands.
@@ -46,11 +92,8 @@ pub fn run_tool(
     verbose: bool,
     work_dir: &Path,
 ) -> Result<ToolResult> {
-    // Create batches
-    let batches: Vec<Vec<&Path>> = files
-        .chunks(MAX_FILES_PER_BATCH)
-        .map(|chunk| chunk.to_vec())
-        .collect();
+    // Create batches based on total arg bytes
+    let batches = create_batches(tool, files);
 
     // Run batches in parallel
     let results: Vec<Result<BatchResult>> = batches
@@ -210,10 +253,14 @@ mod tests {
     }
 
     #[test]
-    fn test_batching_large_file_list() {
+    fn test_batching_by_bytes() {
         let tool = make_tool("test", "echo", &[]);
 
-        // Create more files than MAX_FILES_PER_BATCH (200)
+        // Create files with predictable sizes
+        // Each "fileNNN.txt" is ~12 bytes + 1 null = 13 bytes
+        // With 128KB limit and ~5 bytes base overhead (echo + null),
+        // we can fit roughly 128*1024 / 13 ≈ 10,000 files per batch
+        // So 450 short-named files should fit in 1 batch
         let files: Vec<PathBuf> = (0..450).map(|i| format!("file{}.txt", i).into()).collect();
         let file_refs: Vec<&Path> = files.iter().map(|p| p.as_path()).collect();
         let work_dir = std::env::current_dir().unwrap();
@@ -221,8 +268,50 @@ mod tests {
         let result = run_tool(&tool, &file_refs, false, &work_dir).unwrap();
 
         assert!(result.success);
-        // Should have 3 batches: 200 + 200 + 50
-        assert_eq!(result.batches.len(), 3);
+        // Short filenames should fit in a single batch
+        assert_eq!(result.batches.len(), 1);
+    }
+
+    #[test]
+    fn test_batching_splits_on_byte_limit() {
+        let tool = make_tool("test", "echo", &[]);
+
+        // Create files with long paths to force multiple batches
+        // Each path is ~200 bytes, so ~640 files should exceed 128KB
+        let long_dir = "a".repeat(180);
+        let files: Vec<PathBuf> = (0..1000)
+            .map(|i| format!("{}/file{}.txt", long_dir, i).into())
+            .collect();
+        let file_refs: Vec<&Path> = files.iter().map(|p| p.as_path()).collect();
+        let work_dir = std::env::current_dir().unwrap();
+
+        let result = run_tool(&tool, &file_refs, false, &work_dir).unwrap();
+
+        assert!(result.success);
+        // Long filenames should require multiple batches
+        assert!(
+            result.batches.len() > 1,
+            "Expected multiple batches for long paths, got {}",
+            result.batches.len()
+        );
+    }
+
+    #[test]
+    fn test_batching_includes_oversized_file() {
+        let tool = make_tool("test", "echo", &[]);
+
+        // Create a file path that alone exceeds MAX_BATCH_BYTES
+        // This tests that we still include it (at least one file per batch)
+        let huge_path = "x".repeat(200_000);
+        let files: Vec<PathBuf> = vec![huge_path.into()];
+        let file_refs: Vec<&Path> = files.iter().map(|p| p.as_path()).collect();
+        let work_dir = std::env::current_dir().unwrap();
+
+        let result = run_tool(&tool, &file_refs, false, &work_dir).unwrap();
+
+        // Should still run (even if arg might be too long for actual execution)
+        // The important thing is we don't panic or create empty batches
+        assert_eq!(result.batches.len(), 1);
     }
 
     #[test]
