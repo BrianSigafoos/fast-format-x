@@ -106,20 +106,20 @@ fn run() -> Result<RunOutcome> {
         eprintln!();
     }
 
-    // Get files to format
+    // Get files to format (run git commands from repo root for consistent paths)
     let (files, file_source) = if cli.all {
         (
-            git::all_files().context("Failed to get all files")?,
+            git::all_files(&repo_root).context("Failed to get all files")?,
             "all tracked files",
         )
     } else if cli.staged {
         (
-            git::staged_files().context("Failed to get staged files")?,
+            git::staged_files(&repo_root).context("Failed to get staged files")?,
             "staged files",
         )
     } else {
         (
-            git::changed_files().context("Failed to get changed files")?,
+            git::changed_files(&repo_root).context("Failed to get changed files")?,
             "changed files",
         )
     };

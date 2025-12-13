@@ -1,10 +1,12 @@
 //! Git operations for file discovery.
 //!
 //! Provides functions to discover staged files and find the repo root.
+//! All file-listing functions run from the repo root to ensure paths are
+//! always relative to the repo root, regardless of the current working directory.
 
 use anyhow::{Context, Result};
 use std::collections::BTreeSet;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 /// Get the root directory of the git repository.
@@ -35,9 +37,12 @@ pub fn repo_root() -> Result<PathBuf> {
 /// Uses `git ls-files` to list all files tracked by git.
 /// This respects .gitignore and excludes untracked files.
 /// Returns paths relative to the repo root.
-pub fn all_files() -> Result<Vec<PathBuf>> {
+///
+/// The `work_dir` parameter specifies the directory to run git from (should be repo root).
+pub fn all_files(work_dir: &Path) -> Result<Vec<PathBuf>> {
     let output = Command::new("git")
         .args(["ls-files"])
+        .current_dir(work_dir)
         .output()
         .context("Failed to run git ls-files")?;
 
@@ -60,12 +65,15 @@ pub fn all_files() -> Result<Vec<PathBuf>> {
 /// Get list of staged files (excludes deleted files).
 ///
 /// Returns paths relative to the repo root.
-pub fn staged_files() -> Result<Vec<PathBuf>> {
+///
+/// The `work_dir` parameter specifies the directory to run git from (should be repo root).
+pub fn staged_files(work_dir: &Path) -> Result<Vec<PathBuf>> {
     // --diff-filter=d excludes deleted files
     // --name-only shows only file paths
     // --cached shows staged (index) changes
     let output = Command::new("git")
         .args(["diff", "--name-only", "--cached", "--diff-filter=d"])
+        .current_dir(work_dir)
         .output()
         .context("Failed to run git diff")?;
 
@@ -88,9 +96,12 @@ pub fn staged_files() -> Result<Vec<PathBuf>> {
 /// Get list of changed files (staged, unstaged, and untracked).
 ///
 /// Excludes deleted files and returns paths relative to the repo root.
-pub fn changed_files() -> Result<Vec<PathBuf>> {
+///
+/// The `work_dir` parameter specifies the directory to run git from (should be repo root).
+pub fn changed_files(work_dir: &Path) -> Result<Vec<PathBuf>> {
     let output = Command::new("git")
         .args(["status", "--porcelain=v1", "--untracked-files=normal"])
+        .current_dir(work_dir)
         .output()
         .context("Failed to run git status")?;
 
@@ -152,21 +163,24 @@ mod tests {
     fn test_staged_files_returns_vec() {
         // This test only works when run inside a git repo
         // It should at least not error, even if no files are staged
-        let result = staged_files();
+        let root = repo_root().unwrap();
+        let result = staged_files(&root);
         assert!(result.is_ok(), "Should get staged files: {:?}", result);
     }
 
     #[test]
     fn test_changed_files_returns_vec() {
         // This test only works when run inside a git repo
-        let result = changed_files();
+        let root = repo_root().unwrap();
+        let result = changed_files(&root);
         assert!(result.is_ok(), "Should get changed files: {:?}", result);
     }
 
     #[test]
     fn test_all_files_returns_tracked_files() {
         // This test only works when run inside a git repo
-        let result = all_files();
+        let root = repo_root().unwrap();
+        let result = all_files(&root);
         assert!(result.is_ok(), "Should get all files: {:?}", result);
         let files = result.unwrap();
         // Should have at least some files in a git repo
