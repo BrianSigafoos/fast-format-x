@@ -1,6 +1,6 @@
 # fast-format-x (ffx)
 
-A blazing fast CLI that runs formatter commands on staged files in parallel. Written in Rust.
+A blazing fast CLI that runs formatter commands on changed files in parallel. Written in Rust.
 
 ## Installation
 
@@ -46,8 +46,11 @@ The binary is installed to `~/.cargo/bin/ffx`. Make sure `~/.cargo/bin` is in yo
 ## Usage
 
 ```bash
-# Format staged files (default)
+# Format changed files (default)
 ffx
+
+# Format staged files only
+ffx --staged
 
 # Format all matching files
 ffx --all
@@ -86,7 +89,7 @@ Add to your `AGENTS.md` or Cursor rules to save LLM tokens on formatting:
 ```markdown
 ## Formatting
 
-Run `ffx` to auto-format all staged files. Don't manually format code.
+Run `ffx` to auto-format all changed files. Don't manually format code.
 ```
 
 ## Configuration

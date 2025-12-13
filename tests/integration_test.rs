@@ -33,6 +33,7 @@ fn test_help_flag() {
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Fast parallel formatter runner"));
+    assert!(stdout.contains("--staged"));
     assert!(stdout.contains("--all"));
     assert!(stdout.contains("--config"));
     assert!(stdout.contains("--verbose"));
@@ -93,7 +94,7 @@ tools:
 }
 
 #[test]
-fn test_no_staged_files_message() {
+fn test_no_changed_files_message() {
     let config = r#"
 version: 1
 tools:
@@ -110,8 +111,78 @@ tools:
         .output()
         .expect("Failed to init git");
 
+    // Commit the config file so the working tree is clean
+    Command::new("git")
+        .args(["add", "."])
+        .current_dir(dir.path())
+        .output()
+        .expect("Failed to add config");
+
+    Command::new("git")
+        .args([
+            "-c",
+            "user.email=test@example.com",
+            "-c",
+            "user.name=Test User",
+            "commit",
+            "-m",
+            "Initial commit",
+        ])
+        .current_dir(dir.path())
+        .output()
+        .expect("Failed to commit config");
+
     let output = Command::new(ffx_binary())
         .current_dir(dir.path())
+        .output()
+        .expect("Failed to run ffx");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("No changed files"));
+}
+
+#[test]
+fn test_staged_flag_shows_message_when_empty() {
+    let config = r#"
+version: 1
+tools:
+  - name: test
+    include: ["**/*.txt"]
+    cmd: echo
+"#;
+    let dir = setup_test_dir(config);
+
+    Command::new("git")
+        .args(["init"])
+        .current_dir(dir.path())
+        .output()
+        .expect("Failed to init git");
+
+    // Commit the config file so no files are staged
+    Command::new("git")
+        .args(["add", "."])
+        .current_dir(dir.path())
+        .output()
+        .expect("Failed to add config");
+
+    Command::new("git")
+        .args([
+            "-c",
+            "user.email=test@example.com",
+            "-c",
+            "user.name=Test User",
+            "commit",
+            "-m",
+            "Initial commit",
+        ])
+        .current_dir(dir.path())
+        .output()
+        .expect("Failed to commit config");
+
+    let output = Command::new(ffx_binary())
+        .current_dir(dir.path())
+        .arg("--staged")
         .output()
         .expect("Failed to run ffx");
 
