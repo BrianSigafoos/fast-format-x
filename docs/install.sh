@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Fast-format-x (ffx) installer
-# Usage: curl -LsSf https://fast-format-x.briansigafoos.com/install.sh | bash
+# Usage: curl -LsSf https://ffx.bfoos.net/install.sh | bash
 #
 # This script downloads and installs the ffx binary for your platform.
 

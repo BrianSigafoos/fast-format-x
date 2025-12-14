@@ -1,5 +1,5 @@
 # .fast-format-x.yaml - Exemplar config with popular formatters per language
-# Install with: curl -LsSf https://fast-format-x.briansigafoos.com/install.sh | bash
+# Install with: curl -LsSf https://ffx.bfoos.net/install.sh | bash
 # Run `ffx init` to install the pre-commit hook and scaffold this config.
 
 version: 1
