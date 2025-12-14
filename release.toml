@@ -1,0 +1,24 @@
+# Configuration for cargo-release
+# https://github.com/crate-ci/cargo-release
+
+# Commit message for version bump
+pre-release-commit-message = "chore: release {{version}}"
+
+# Tag format (v prefix)
+tag-name = "v{{version}}"
+
+# Push to remote automatically
+push = true
+
+# Create and push tag
+tag = true
+
+# Sign commits (set to true if you have GPG configured)
+sign-commit = false
+sign-tag = false
+
+# Allow releasing from main branch only
+allow-branch = ["main"]
+
+# Run cargo publish (disabled - we're not publishing to crates.io)
+publish = false
