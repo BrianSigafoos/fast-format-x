@@ -37,6 +37,7 @@ fn test_help_flag() {
     assert!(stdout.contains("--all"));
     assert!(stdout.contains("--config"));
     assert!(stdout.contains("--verbose"));
+    assert!(stdout.contains("init"));
 }
 
 #[test]
@@ -75,6 +76,65 @@ fn test_missing_config_file() {
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("Failed to load config") || stderr.contains("Failed to read"));
+}
+
+#[test]
+fn test_init_installs_pre_commit_hook() {
+    let dir = tempfile::tempdir().unwrap();
+
+    Command::new("git")
+        .args(["init"])
+        .current_dir(dir.path())
+        .output()
+        .expect("Failed to init git");
+
+    let output = Command::new(ffx_binary())
+        .current_dir(dir.path())
+        .arg("init")
+        .output()
+        .expect("Failed to run ffx init");
+
+    assert!(output.status.success());
+
+    let hook_path = dir.path().join(".git/hooks/pre-commit");
+    let hook = fs::read_to_string(&hook_path).expect("Hook should be written");
+    assert!(hook.contains("ffx --staged"));
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        let mode = fs::metadata(&hook_path)
+            .expect("Should read hook metadata")
+            .permissions()
+            .mode();
+        assert!(mode & 0o111 != 0, "Hook should be executable");
+    }
+}
+
+#[test]
+fn test_init_creates_config_template() {
+    let dir = tempfile::tempdir().unwrap();
+
+    Command::new("git")
+        .args(["init"])
+        .current_dir(dir.path())
+        .output()
+        .expect("Failed to init git");
+
+    let output = Command::new(ffx_binary())
+        .current_dir(dir.path())
+        .arg("init")
+        .output()
+        .expect("Failed to run ffx init");
+
+    assert!(output.status.success());
+
+    let config_path = dir.path().join(".fast-format-x.yaml");
+    let config = fs::read_to_string(&config_path).expect("Config template should be written");
+    assert!(config.contains("fast-format-x configuration"));
+    assert!(config.contains("Update the tools"));
+    assert!(config.contains("version: 1"));
 }
 
 #[test]
