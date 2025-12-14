@@ -512,46 +512,9 @@ git diff --name-only | while read -r file; do
 done
 "#;
 
-const CONFIG_TEMPLATE: &str = r#"# fast-format-x configuration
-# Update the tools below to match the formatters used in your repository.
-# Use check_args for CI mode (ffx --all --check) to verify without modifying files.
-version: 1
-
-tools:
-  - name: prettier
-    include: ["**/*.md", "**/*.yml", "**/*.yaml", "**/*.js", "**/*.ts"]
-    cmd: npx
-    args: [prettier, --write]
-    check_args: [prettier, --check]
-
-  - name: rubocop
-    include:
-      - "**/*.rb"
-      - "**/*.rake"
-    exclude:
-      - "vendor/**"
-    cmd: bundle
-    args: [exec, rubocop, -A]
-    check_args: [exec, rubocop]
-
-  - name: ktlint
-    include: ["**/*.kt", "**/*.kts"]
-    cmd: ktlint
-    args: [-F]
-    check_args: []
-
-  - name: gofmt
-    include: ["**/*.go"]
-    cmd: gofmt
-    args: [-w]
-    check_args: [-l]
-
-  - name: rustfmt
-    include: ["**/*.rs"]
-    cmd: cargo
-    args: [fmt, --]
-    check_args: [fmt, --, --check]
-"#;
+/// Config template embedded from docs/fast-format-x.yaml at compile time.
+/// This keeps the template in one place for both `ffx init` and the website.
+const CONFIG_TEMPLATE: &str = include_str!("../docs/fast-format-x.yaml");
 
 #[cfg(test)]
 mod tests {

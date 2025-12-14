@@ -31,7 +31,7 @@
         <div class="stat-label">CPU Cores</div>
       </div>
       <div class="stat">
-        <div class="stat-value">1.6MB</div>
+        <div class="stat-value">2MB</div>
         <div class="stat-label">Binary</div>
       </div>
     </div>
@@ -49,20 +49,19 @@
           <span class="terminal-cmd"> ffx</span>
         </div>
         <div class="terminal-line">
-          <span class="terminal-output">Scanning for changed files...</span>
-        </div>
-        <div class="terminal-line terminal-output">&nbsp;</div>
-        <div class="terminal-line">
-          <span class="terminal-success">✓</span>
-          <span class="terminal-output"> [standard] 14 files</span>
+          <span class="terminal-output">Running formatters:</span>
         </div>
         <div class="terminal-line">
           <span class="terminal-success">✓</span>
-          <span class="terminal-output"> [prettier] 6 files</span>
+          <span class="terminal-output"> [standard] 12 files</span>
         </div>
         <div class="terminal-line">
           <span class="terminal-success">✓</span>
-          <span class="terminal-output"> [rubocop] 5 files</span>
+          <span class="terminal-output"> [ruff] 8 files</span>
+        </div>
+        <div class="terminal-line">
+          <span class="terminal-success">✓</span>
+          <span class="terminal-output"> [prettier] 5 files</span>
         </div>
         <div class="terminal-line terminal-output">&nbsp;</div>
         <div class="terminal-line">
@@ -78,12 +77,12 @@
       <div class="feature">
         <div class="feature-icon">🤖</div>
         <div class="feature-title">Built for AI Agents</div>
-        <div class="feature-desc">Replace 5 formatter instructions in your <a href="https://agents.md" target="_blank">AGENTS.md</a> with one: <code>Run ffx</code>. No wasted tokens.</div>
+        <div class="feature-desc">Replace multiple formatter instructions in your <a href="https://agents.md" target="_blank">AGENTS.md</a> with one: <code>Run ffx</code>. No wasted tokens.</div>
       </div>
       <div class="feature">
         <div class="feature-icon">🎯</div>
         <div class="feature-title">One Command, All Files</div>
-        <div class="feature-desc">JS, TypeScript, Ruby, Go, Rust—each file runs through the right formatter automatically.</div>
+        <div class="feature-desc">JS, TypeScript, Python, Kotlin, Go, Rust, Ruby—each file runs through the right formatter automatically.</div>
       </div>
       <div class="feature">
         <div class="feature-icon">⚡</div>
@@ -105,7 +104,7 @@
     <div class="install">
       <h2>Install</h2>
       <div class="install-cmd">
-        <code id="install-command">curl -LsSf https://raw.githubusercontent.com/BrianSigafoos/fast-format-x/main/install.sh | bash</code>
+        <code id="install-command">curl -LsSf https://fast-format-x.briansigafoos.com/install.sh | bash</code>
         <button class="copy-btn" type="button" aria-label="Copy install command">Copy</button>
       </div>
       <p class="copy-feedback" role="status" aria-live="polite"></p>
@@ -117,28 +116,39 @@
 
     <div class="config">
       <h2><code>.fast-format-x.yaml</code></h2>
-      <pre><code><span class="comment"># Required config file in your project root</span>
+      <pre><code><span class="comment"># Config file in your project root. Remove tools you don't need.</span>
 <span class="key">version:</span> 1
 
 <span class="key">tools:</span>
+  <span class="comment"># Go</span>
+  - <span class="key">name:</span> gofmt
+    <span class="key">include:</span> [<span class="string">"**/*.go"</span>]
+    <span class="key">cmd:</span> gofmt
+    <span class="key">args:</span> [-w]
+
   <span class="comment"># JavaScript / TypeScript / React</span>
   - <span class="key">name:</span> standard
     <span class="key">include:</span> [<span class="string">"**/*.js"</span>, <span class="string">"**/*.jsx"</span>, <span class="string">"**/*.ts"</span>, <span class="string">"**/*.tsx"</span>]
     <span class="key">cmd:</span> npx
     <span class="key">args:</span> [standard, --fix]
 
-  <span class="comment"># Markdown / JSON</span>
-  - <span class="key">name:</span> prettier
-    <span class="key">include:</span> [<span class="string">"**/*.md"</span>, <span class="string">"**/*.json"</span>]
-    <span class="key">cmd:</span> npx
-    <span class="key">args:</span> [prettier, --write]
+  <span class="comment"># Kotlin</span>
+  - <span class="key">name:</span> ktlint
+    <span class="key">include:</span> [<span class="string">"**/*.kt"</span>, <span class="string">"**/*.kts"</span>]
+    <span class="key">cmd:</span> ktlint
+    <span class="key">args:</span> [-F]
+
+  <span class="comment"># Python (Ruff - linter + formatter)</span>
+  - <span class="key">name:</span> ruff
+    <span class="key">include:</span> [<span class="string">"**/*.py"</span>]
+    <span class="key">cmd:</span> uv
+    <span class="key">args:</span> [run, ruff, check, --fix, .]
 
   <span class="comment"># Ruby</span>
   - <span class="key">name:</span> rubocop
     <span class="key">include:</span> [<span class="string">"**/*.rb"</span>]
-    <span class="key">exclude:</span> [<span class="string">"vendor/**"</span>]
     <span class="key">cmd:</span> bundle
-    <span class="key">args:</span> [exec, rubocop, -a]
+    <span class="key">args:</span> [exec, rubocop, -A]
 
   <span class="comment"># Rust</span>
   - <span class="key">name:</span> rustfmt
@@ -146,11 +156,20 @@
     <span class="key">cmd:</span> cargo
     <span class="key">args:</span> [fmt, --]
 
-  <span class="comment"># Go</span>
-  - <span class="key">name:</span> gofmt
-    <span class="key">include:</span> [<span class="string">"**/*.go"</span>]
-    <span class="key">cmd:</span> gofmt
-    <span class="key">args:</span> [-w]</code></pre>
+  <span class="comment"># Swift</span>
+  - <span class="key">name:</span> swiftformat
+    <span class="key">include:</span> [<span class="string">"**/*.swift"</span>]
+    <span class="key">cmd:</span> swiftformat
+    <span class="key">args:</span> [.]
+
+  <span class="comment"># Web: CSS, Markdown, JSON, YAML, HTML</span>
+  - <span class="key">name:</span> prettier
+    <span class="key">include:</span> [<span class="string">"**/*.css"</span>, <span class="string">"**/*.md"</span>, <span class="string">"**/*.json"</span>, <span class="string">"**/*.yaml"</span>, <span class="string">"**/*.html"</span>]
+    <span class="key">cmd:</span> npx
+    <span class="key">args:</span> [prettier, --write]</code></pre>
+      <p class="config-note">
+        <a href="fast-format-x.yaml" target="_blank" download>Download full config</a> with Java, Terraform, Rails ERB, i18n, and more.
+      </p>
     </div>
 
     <footer>
