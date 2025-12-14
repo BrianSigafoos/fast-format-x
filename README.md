@@ -4,7 +4,7 @@
 
 One command. Every file type. All formatters run in parallel.
 
-Stop teaching your LLM about prettier, rubocop, gofmt, and rustfmt. Give it `ffx`—one command that auto-formats all changed files using the right tool for each file type. Written in Rust for speed.
+Stop telling your AI agents how to auto-format your code. Give them one command, `ffx`, that auto-formats all changed files using the right tool for each file type. Written in Rust for speed.
 
 ## Installation
 
@@ -94,15 +94,15 @@ If `.fast-format-x.yaml` doesn't exist, `ffx init` also creates a template with 
 
 ### AI Agent Integration
 
-Replace multiple formatting instructions in your [AGENTS.md](https://agents-md.org) with one line:
+Replace multiple formatting instructions in your [AGENTS.md](https://agents.md) with one line:
 
 ```markdown
 ## Formatting
 
-Run `ffx` to auto-format every changed file. It runs the correct formatter for each file type.
+Run `ffx` to auto-format every changed file (it runs the correct formatter for each file)
 ```
 
-Instead of teaching your AI agent about prettier, standard, rubocop, gofmt, and rustfmt—just tell it to run `ffx`. One command. No wasted tokens.
+Instead of teaching your AI agent about prettier, standard, rubocop, gofmt, and rustfmt, just tell it to run `ffx`. One command. No wasted tokens.
 
 ## Configuration
 
