@@ -1,6 +1,10 @@
 # fast-format-x (ffx)
 
-A blazing fast CLI that runs formatter commands on changed files in parallel. Written in Rust.
+**The only formatter your AI needs to know.**
+
+One command. Every file type. All formatters run in parallel.
+
+Stop telling your AI agents how to auto-format your code. Give them one command, `ffx`, that auto-formats all changed files using the right tool for each file type. Written in Rust for speed.
 
 ## Installation
 
@@ -9,7 +13,7 @@ A blazing fast CLI that runs formatter commands on changed files in parallel. Wr
 Install the latest release with a single command:
 
 ```bash
-curl -LsSf https://raw.githubusercontent.com/BrianSigafoos/fast-format-x/main/install.sh | bash
+curl -LsSf https://fast-format-x.briansigafoos.com/install.sh | bash
 # Then initialize in your repo to install the pre-commit hook
 ffx init
 ```
@@ -90,13 +94,15 @@ If `.fast-format-x.yaml` doesn't exist, `ffx init` also creates a template with 
 
 ### AI Agent Integration
 
-Add to your `AGENTS.md` or Cursor rules to save LLM tokens on formatting:
+Replace multiple formatting instructions in your [AGENTS.md](https://agents.md) with one line:
 
 ```markdown
 ## Formatting
 
-Run `ffx` to auto-format all changed files. Don't manually format code.
+Run `ffx` to auto-format every changed file (it runs the correct formatter for each file)
 ```
+
+Instead of teaching your AI agent about prettier, standard, rubocop, gofmt, and rustfmt, just tell it to run `ffx`. One command. No wasted tokens.
 
 ## Configuration
 

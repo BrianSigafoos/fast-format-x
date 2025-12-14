@@ -1,0 +1,125 @@
+# .fast-format-x.yaml - Exemplar config with popular formatters per language
+# Install with: curl -LsSf https://fast-format-x.briansigafoos.com/install.sh | bash
+# Run `ffx init` to install the pre-commit hook and scaffold this config.
+
+version: 1
+
+tools:
+  # Go
+  # gofmt: the official Go formatter
+  - name: gofmt
+    include: ["**/*.go"]
+    exclude: ["vendor/**"]
+    cmd: gofmt
+    args: [-w]
+    check_args: [-l]
+
+  # JavaScript / TypeScript / React
+  # Standard: opinionated, zero-config formatter + linter
+  - name: standard
+    include: ["**/*.js", "**/*.jsx", "**/*.ts", "**/*.tsx"]
+    exclude: ["node_modules/**", "dist/**", "build/**"]
+    cmd: npx
+    args: [standard, --fix]
+    check_args: [standard]
+
+  # Java
+  # google-java-format: Google's opinionated Java formatter
+  - name: google-java-format
+    include: ["**/*.java"]
+    exclude: ["build/**", "target/**"]
+    cmd: google-java-format
+    args: [-i]
+    check_args: [--dry-run, --set-exit-if-changed]
+
+  # Kotlin
+  # ktlint: Kotlin linter with built-in formatter
+  - name: ktlint
+    include: ["**/*.kt", "**/*.kts"]
+    cmd: ktlint
+    args: [-F]
+    check_args: []
+
+  # Python
+  # Ruff: extremely fast Python linter + formatter (replaces flake8, isort, black)
+  - name: ruff
+    include: ["**/*.py"]
+    exclude: [".venv/**", "venv/**", "__pycache__/**"]
+    cmd: uv
+    args: [run, ruff, check, --fix, .]
+    check_args: [run, ruff, check, .]
+
+  - name: ruff-format
+    include: ["**/*.py"]
+    exclude: [".venv/**", "venv/**", "__pycache__/**"]
+    cmd: uv
+    args: [run, ruff, format, .]
+    check_args: [run, ruff, format, --check, .]
+
+  # Rails ERB templates
+  # erb_lint: linter for ERB templates
+  - name: erb_lint
+    include: ["**/*.html.erb", "**/*.erb"]
+    exclude: ["vendor/**"]
+    cmd: bundle
+    args: [exec, erb_lint, -a]
+    check_args: [exec, erb_lint]
+
+  # Rails i18n (internationalization)
+  # i18n-tasks: manages Rails i18n keys
+  - name: i18n-tasks
+    include: ["config/locales/**/*.yml"]
+    cmd: bundle
+    args: [exec, i18n-tasks, normalize]
+    check_args: [exec, i18n-tasks, health]
+
+  # Ruby
+  # RuboCop: the Ruby community's standard linter + formatter
+  - name: rubocop
+    include: ["**/*.rb", "**/*.rake", "Gemfile", "Rakefile"]
+    exclude: ["vendor/**"]
+    cmd: bundle
+    args: [exec, rubocop, -A]
+    check_args: [exec, rubocop]
+
+  # Rust
+  # rustfmt: the official Rust formatter
+  - name: rustfmt
+    include: ["**/*.rs"]
+    exclude: ["target/**"]
+    cmd: cargo
+    args: [fmt, --]
+    check_args: [fmt, --, --check]
+
+  # Swift
+  # SwiftFormat: popular Swift formatter
+  - name: swiftformat
+    include: ["**/*.swift"]
+    exclude: [".build/**", "Pods/**"]
+    cmd: swiftformat
+    args: [.]
+    check_args: [., --lint]
+
+  # Terraform
+  # terraform fmt: official Terraform formatter
+  - name: terraform
+    include: ["**/*.tf", "**/*.tfvars"]
+    cmd: terraform
+    args: [fmt, -recursive]
+    check_args: [fmt, -check, -recursive]
+
+  # Web files: CSS, SCSS, Markdown, JSON, YAML, HTML
+  # Prettier: the standard for web file formatting
+  - name: prettier
+    include:
+      - "**/*.css"
+      - "**/*.scss"
+      - "**/*.md"
+      - "**/*.json"
+      - "**/*.yaml"
+      - "**/*.yml"
+      - "**/*.html"
+    exclude: ["node_modules/**", "dist/**", "build/**"]
+    cmd: npx
+    args: [prettier, --write]
+    check_args: [prettier, --check]

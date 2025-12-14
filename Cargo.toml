@@ -2,7 +2,7 @@
 name = "ffx"
 version = "0.1.14"
 edition = "2021"
-description = "Fast parallel formatter runner for staged files"
+description = "One command to auto-format every changed file. All formatters run in parallel."
 license = "MIT"
 repository = "https://github.com/BrianSigafoos/fast-format-x"
 homepage = "https://github.com/BrianSigafoos/fast-format-x"

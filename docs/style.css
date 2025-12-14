@@ -245,6 +245,15 @@ header {
   color: var(--accent);
 }
 
+.feature-desc a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.feature-desc a:hover {
+  text-decoration: underline;
+}
+
 /* Install section */
 .install {
   background: var(--bg-alt);
@@ -362,6 +371,22 @@ header {
 .config .key { color: var(--accent); }
 .config .string { color: var(--accent-alt); }
 .config .comment { color: var(--text-dim); }
+
+.config-note {
+  text-align: center;
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  color: var(--text-dim);
+}
+
+.config-note a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.config-note a:hover {
+  text-decoration: underline;
+}
 
 /* Footer */
 footer {
