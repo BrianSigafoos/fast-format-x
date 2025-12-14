@@ -13,7 +13,7 @@ Stop telling your AI agents how to auto-format your code. Give them one command,
 Install the latest release with a single command:
 
 ```bash
-curl -LsSf https://fast-format-x.briansigafoos.com/install.sh | bash
+curl -LsSf https://ffx.bfoos.net/install.sh | bash
 # Then initialize in your repo to install the pre-commit hook
 ffx init
 ```
