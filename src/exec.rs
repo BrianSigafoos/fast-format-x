@@ -46,14 +46,11 @@ fn arg_bytes(s: &OsStr) -> usize {
 /// Create batches of files that fit within MAX_BATCH_BYTES.
 ///
 /// Each batch's total arg bytes (cmd + args + files) stays under the limit.
-fn create_batches<'a>(tool: &Tool, files: &[&'a Path]) -> Vec<Vec<&'a Path>> {
+fn create_batches<'a>(tool: &Tool, files: &[&'a Path], check_mode: bool) -> Vec<Vec<&'a Path>> {
+    let args = tool.get_args(check_mode);
     // Calculate fixed overhead: command + configured args
     let base_bytes: usize = arg_bytes(OsStr::new(&tool.cmd))
-        + tool
-            .args
-            .iter()
-            .map(|a| arg_bytes(OsStr::new(a)))
-            .sum::<usize>();
+        + args.iter().map(|a| arg_bytes(OsStr::new(a))).sum::<usize>();
 
     let mut batches: Vec<Vec<&'a Path>> = Vec::new();
     let mut current_batch: Vec<&'a Path> = Vec::new();
@@ -86,20 +83,22 @@ fn create_batches<'a>(tool: &Tool, files: &[&'a Path]) -> Vec<Vec<&'a Path>> {
 /// Files are batched by total argument bytes to avoid ARG_MAX limits.
 /// Batches run in parallel using rayon.
 /// When `verbose` is true, command strings are captured for logging.
+/// When `check_mode` is true, uses check_args instead of args (for CI).
 /// `work_dir` sets the working directory for the formatter commands.
 pub fn run_tool(
     tool: &Tool,
     files: &[&Path],
     verbose: bool,
+    check_mode: bool,
     work_dir: &Path,
 ) -> Result<ToolResult> {
     // Create batches based on total arg bytes
-    let batches = create_batches(tool, files);
+    let batches = create_batches(tool, files, check_mode);
 
     // Run batches in parallel
     let results: Vec<Result<BatchResult>> = batches
         .par_iter()
-        .map(|batch| run_batch(tool, batch, verbose, work_dir))
+        .map(|batch| run_batch(tool, batch, verbose, check_mode, work_dir))
         .collect();
 
     // Collect results, propagating any errors
@@ -121,14 +120,21 @@ pub fn run_tool(
 }
 
 /// Run a single batch of files through a formatter.
-fn run_batch(tool: &Tool, files: &[&Path], verbose: bool, work_dir: &Path) -> Result<BatchResult> {
+fn run_batch(
+    tool: &Tool,
+    files: &[&Path],
+    verbose: bool,
+    check_mode: bool,
+    work_dir: &Path,
+) -> Result<BatchResult> {
+    let args = tool.get_args(check_mode);
     let mut cmd = Command::new(&tool.cmd);
 
     // Run from repo root so paths resolve correctly
     cmd.current_dir(work_dir);
 
-    // Add configured arguments
-    cmd.args(&tool.args);
+    // Add configured arguments (check_args in check mode, args otherwise)
+    cmd.args(args);
 
     // Add file paths
     for file in files {
@@ -140,7 +146,7 @@ fn run_batch(tool: &Tool, files: &[&Path], verbose: bool, work_dir: &Path) -> Re
         format!(
             "{} {} {}",
             tool.cmd,
-            tool.args.join(" "),
+            args.join(" "),
             files
                 .iter()
                 .map(|p| p.to_string_lossy())
@@ -204,6 +210,23 @@ mod tests {
             exclude: vec![],
             cmd: cmd.to_string(),
             args: args.iter().map(|s| s.to_string()).collect(),
+            check_args: None,
+        }
+    }
+
+    fn make_tool_with_check_args(
+        name: &str,
+        cmd: &str,
+        args: &[&str],
+        check_args: &[&str],
+    ) -> Tool {
+        Tool {
+            name: name.to_string(),
+            include: vec!["**/*".to_string()],
+            exclude: vec![],
+            cmd: cmd.to_string(),
+            args: args.iter().map(|s| s.to_string()).collect(),
+            check_args: Some(check_args.iter().map(|s| s.to_string()).collect()),
         }
     }
 
@@ -228,7 +251,7 @@ mod tests {
         let file_refs: Vec<&Path> = files.iter().map(|p| p.as_path()).collect();
         let work_dir = std::env::current_dir().unwrap();
 
-        let result = run_tool(&tool, &file_refs, false, &work_dir).unwrap();
+        let result = run_tool(&tool, &file_refs, false, false, &work_dir).unwrap();
 
         assert!(result.success);
         assert_eq!(result.batches.len(), 1);
@@ -245,7 +268,7 @@ mod tests {
         let file_refs: Vec<&Path> = files.iter().map(|p| p.as_path()).collect();
         let work_dir = std::env::current_dir().unwrap();
 
-        let result = run_tool(&tool, &file_refs, false, &work_dir).unwrap();
+        let result = run_tool(&tool, &file_refs, false, false, &work_dir).unwrap();
 
         assert!(!result.success);
         assert!(!result.batches[0].success);
@@ -258,7 +281,7 @@ mod tests {
         let file_refs: Vec<&Path> = files.iter().map(|p| p.as_path()).collect();
         let work_dir = std::env::current_dir().unwrap();
 
-        let result = run_tool(&tool, &file_refs, false, &work_dir);
+        let result = run_tool(&tool, &file_refs, false, false, &work_dir);
 
         // Should return an error, not a failed result
         assert!(result.is_err());
@@ -277,7 +300,7 @@ mod tests {
         let file_refs: Vec<&Path> = files.iter().map(|p| p.as_path()).collect();
         let work_dir = std::env::current_dir().unwrap();
 
-        let result = run_tool(&tool, &file_refs, false, &work_dir).unwrap();
+        let result = run_tool(&tool, &file_refs, false, false, &work_dir).unwrap();
 
         assert!(result.success);
         // Short filenames should fit in a single batch
@@ -297,7 +320,7 @@ mod tests {
         let file_refs: Vec<&Path> = files.iter().map(|p| p.as_path()).collect();
         let work_dir = std::env::current_dir().unwrap();
 
-        let result = run_tool(&tool, &file_refs, false, &work_dir).unwrap();
+        let result = run_tool(&tool, &file_refs, false, false, &work_dir).unwrap();
 
         assert!(result.success);
         // Long filenames should require multiple batches
@@ -319,7 +342,7 @@ mod tests {
         let file_refs: Vec<&Path> = files.iter().map(|p| p.as_path()).collect();
         let work_dir = std::env::current_dir().unwrap();
 
-        let result = run_tool(&tool, &file_refs, false, &work_dir).unwrap();
+        let result = run_tool(&tool, &file_refs, false, false, &work_dir).unwrap();
 
         // Should still run (even if arg might be too long for actual execution)
         // The important thing is we don't panic or create empty batches
@@ -333,7 +356,7 @@ mod tests {
         let file_refs: Vec<&Path> = files.iter().map(|p| p.as_path()).collect();
         let work_dir = std::env::current_dir().unwrap();
 
-        let result = run_tool(&tool, &file_refs, true, &work_dir).unwrap();
+        let result = run_tool(&tool, &file_refs, true, false, &work_dir).unwrap();
 
         let cmd = &result.batches[0].command;
         assert!(cmd.contains("echo"));
@@ -348,9 +371,39 @@ mod tests {
         let file_refs: Vec<&Path> = files.iter().map(|p| p.as_path()).collect();
         let work_dir = std::env::current_dir().unwrap();
 
-        let result = run_tool(&tool, &file_refs, false, &work_dir).unwrap();
+        let result = run_tool(&tool, &file_refs, false, false, &work_dir).unwrap();
 
         // Command should be empty when not verbose
         assert!(result.batches[0].command.is_empty());
+    }
+
+    #[test]
+    fn test_check_mode_uses_check_args() {
+        let tool = make_tool_with_check_args("test", "echo", &["--write"], &["--check"]);
+        let files: Vec<PathBuf> = vec!["file.txt".into()];
+        let file_refs: Vec<&Path> = files.iter().map(|p| p.as_path()).collect();
+        let work_dir = std::env::current_dir().unwrap();
+
+        // Normal mode uses args
+        let result = run_tool(&tool, &file_refs, true, false, &work_dir).unwrap();
+        assert!(result.batches[0].command.contains("--write"));
+        assert!(!result.batches[0].command.contains("--check"));
+
+        // Check mode uses check_args
+        let result = run_tool(&tool, &file_refs, true, true, &work_dir).unwrap();
+        assert!(result.batches[0].command.contains("--check"));
+        assert!(!result.batches[0].command.contains("--write"));
+    }
+
+    #[test]
+    fn test_check_mode_falls_back_to_args() {
+        let tool = make_tool("test", "echo", &["--write"]);
+        let files: Vec<PathBuf> = vec!["file.txt".into()];
+        let file_refs: Vec<&Path> = files.iter().map(|p| p.as_path()).collect();
+        let work_dir = std::env::current_dir().unwrap();
+
+        // Check mode without check_args should fall back to args
+        let result = run_tool(&tool, &file_refs, true, true, &work_dir).unwrap();
+        assert!(result.batches[0].command.contains("--write"));
     }
 }

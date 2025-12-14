@@ -57,6 +57,9 @@ ffx --staged
 # Format all matching files
 ffx --all
 
+# Check mode for CI (uses check_args, exits non-zero if issues found)
+ffx --all --check
+
 # Use custom config
 ffx --config path/to/.fast-format-x.yaml
 
@@ -110,28 +113,44 @@ tools:
     exclude:
       - "vendor/**"
     cmd: bundle
-    args: [exec, rubocop, -A]
+    args: [exec, rubocop, -A] # format mode (default)
+    check_args: [exec, rubocop] # check mode (--check flag)
 
   - name: prettier
     include: ["**/*.md", "**/*.yml", "**/*.yaml", "**/*.js", "**/*.ts"]
     cmd: npx
     args: [prettier, --write]
+    check_args: [prettier, --check]
 
   - name: ktlint
     include: ["**/*.kt", "**/*.kts"]
     cmd: ktlint
     args: [-F]
+    check_args: [] # ktlint checks by default
 
   - name: gofmt
     include: ["**/*.go"]
     cmd: gofmt
     args: [-w]
+    check_args: [-l] # list files that differ
 
   - name: rustfmt
     include: ["**/*.rs"]
     cmd: cargo
     args: [fmt, --]
+    check_args: [fmt, --, --check]
 ```
+
+### Check Mode for CI
+
+Use `--check` to verify files are formatted without modifying them:
+
+```bash
+# In your CI pipeline
+ffx --all --check
+```
+
+When `--check` is passed, ffx uses `check_args` instead of `args`. If `check_args` is not defined for a tool, it falls back to `args`.
 
 ## Exit Codes
 

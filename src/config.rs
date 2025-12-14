@@ -36,6 +36,23 @@ pub struct Tool {
     /// Arguments to pass to the command (files appended at end)
     #[serde(default)]
     pub args: Vec<String>,
+
+    /// Arguments to use in check mode (--check flag). Falls back to args if not set.
+    #[serde(default)]
+    pub check_args: Option<Vec<String>>,
+}
+
+impl Tool {
+    /// Get the arguments to use, based on check mode.
+    /// Returns check_args if check mode is enabled and check_args is set,
+    /// otherwise returns args.
+    pub fn get_args(&self, check_mode: bool) -> &[String] {
+        if check_mode {
+            self.check_args.as_deref().unwrap_or(&self.args)
+        } else {
+            &self.args
+        }
+    }
 }
 
 impl Config {
@@ -115,6 +132,83 @@ tools:
         assert_eq!(config.tools[0].include, vec!["**/*.md"]);
         assert_eq!(config.tools[0].cmd, "npx");
         assert_eq!(config.tools[0].args, vec!["prettier", "--write"]);
+        assert!(config.tools[0].check_args.is_none());
+    }
+
+    #[test]
+    fn test_parse_config_with_check_args() {
+        let yaml = r#"
+version: 1
+
+tools:
+  - name: prettier
+    include: ["**/*.md"]
+    cmd: npx
+    args: [prettier, --write]
+    check_args: [prettier, --check]
+"#;
+        let config = parse_and_validate(yaml).unwrap();
+        assert_eq!(config.tools[0].args, vec!["prettier", "--write"]);
+        assert_eq!(
+            config.tools[0].check_args,
+            Some(vec!["prettier".to_string(), "--check".to_string()])
+        );
+    }
+
+    #[test]
+    fn test_get_args_normal_mode() {
+        let yaml = r#"
+version: 1
+
+tools:
+  - name: prettier
+    include: ["**/*.md"]
+    cmd: npx
+    args: [prettier, --write]
+    check_args: [prettier, --check]
+"#;
+        let config = parse_and_validate(yaml).unwrap();
+        let tool = &config.tools[0];
+
+        // Normal mode should use args
+        assert_eq!(tool.get_args(false), vec!["prettier", "--write"]);
+    }
+
+    #[test]
+    fn test_get_args_check_mode_with_check_args() {
+        let yaml = r#"
+version: 1
+
+tools:
+  - name: prettier
+    include: ["**/*.md"]
+    cmd: npx
+    args: [prettier, --write]
+    check_args: [prettier, --check]
+"#;
+        let config = parse_and_validate(yaml).unwrap();
+        let tool = &config.tools[0];
+
+        // Check mode should use check_args
+        assert_eq!(tool.get_args(true), vec!["prettier", "--check"]);
+    }
+
+    #[test]
+    fn test_get_args_check_mode_without_check_args() {
+        let yaml = r#"
+version: 1
+
+tools:
+  - name: prettier
+    include: ["**/*.md"]
+    cmd: npx
+    args: [prettier, --write]
+"#;
+        let config = parse_and_validate(yaml).unwrap();
+        let tool = &config.tools[0];
+
+        // Check mode without check_args should fall back to args
+        assert_eq!(tool.get_args(true), vec!["prettier", "--write"]);
     }
 
     #[test]

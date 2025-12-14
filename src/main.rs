@@ -26,6 +26,7 @@ Examples:
   ffx                Format changed files
   ffx --staged       Format staged files only
   ffx --all          Format all matching files
+  ffx --all --check  Check all files (CI mode, no modifications)
   ffx --verbose      Show commands being run
   ffx -j4            Limit to 4 parallel jobs
 
@@ -46,6 +47,10 @@ struct Cli {
     /// Run only on staged files
     #[arg(long)]
     staged: bool,
+
+    /// Check mode for CI (use check_args instead of args, no file modifications)
+    #[arg(long)]
+    check: bool,
 
     /// Path to config file
     #[arg(long, default_value = ".fast-format-x.yaml")]
@@ -122,6 +127,9 @@ fn run() -> Result<RunOutcome> {
         eprintln!("repo root: {}", repo_root.display());
         eprintln!("config: {} ({} tools)", cli.config, config.tools.len());
         eprintln!("jobs: {}", cli.jobs);
+        if cli.check {
+            eprintln!("mode: check (no modifications)");
+        }
         eprintln!();
     }
 
@@ -179,7 +187,8 @@ fn run() -> Result<RunOutcome> {
 
     // Show planned work - verbose shows file list, non-verbose shows running indicators
     let is_tty = stdout().is_terminal();
-    println!("Running formatters:");
+    let action = if cli.check { "Checking" } else { "Running" };
+    println!("{action} formatters:");
 
     if cli.verbose {
         for m in &matches {
@@ -222,7 +231,7 @@ fn run() -> Result<RunOutcome> {
                 return None;
             }
 
-            let result = exec::run_tool(m.tool, &m.files, cli.verbose, &repo_root);
+            let result = exec::run_tool(m.tool, &m.files, cli.verbose, cli.check, &repo_root);
 
             if let Ok(ref r) = result {
                 if !r.success {
@@ -316,19 +325,21 @@ fn run() -> Result<RunOutcome> {
 
     println!();
     if all_success {
+        let done_msg = if cli.check { "Checked" } else { "Formatted" };
         println!(
             "{} {} {} in {:.2}s",
-            "Formatted".green(),
+            done_msg.green(),
             total_files,
             pluralize_files(total_files),
             elapsed.as_secs_f64()
         );
     } else {
-        println!(
-            "{} ({:.2}s)",
-            "Some formatters failed".red(),
-            elapsed.as_secs_f64()
-        );
+        let fail_msg = if cli.check {
+            "Some checks failed"
+        } else {
+            "Some formatters failed"
+        };
+        println!("{} ({:.2}s)", fail_msg.red(), elapsed.as_secs_f64());
     }
 
     Ok(RunOutcome {
@@ -440,6 +451,7 @@ done
 
 const CONFIG_TEMPLATE: &str = r#"# fast-format-x configuration
 # Update the tools below to match the formatters used in your repository.
+# Use check_args for CI mode (ffx --all --check) to verify without modifying files.
 version: 1
 
 tools:
@@ -447,6 +459,7 @@ tools:
     include: ["**/*.md", "**/*.yml", "**/*.yaml", "**/*.js", "**/*.ts"]
     cmd: npx
     args: [prettier, --write]
+    check_args: [prettier, --check]
 
   - name: rubocop
     include:
@@ -456,21 +469,25 @@ tools:
       - "vendor/**"
     cmd: bundle
     args: [exec, rubocop, -A]
+    check_args: [exec, rubocop]
 
   - name: ktlint
     include: ["**/*.kt", "**/*.kts"]
     cmd: ktlint
     args: [-F]
+    check_args: []
 
   - name: gofmt
     include: ["**/*.go"]
     cmd: gofmt
     args: [-w]
+    check_args: [-l]
 
   - name: rustfmt
     include: ["**/*.rs"]
     cmd: cargo
     args: [fmt, --]
+    check_args: [fmt, --, --check]
 "#;
 
 #[cfg(test)]
