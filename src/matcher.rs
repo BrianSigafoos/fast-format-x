@@ -111,6 +111,7 @@ mod tests {
             exclude: exclude.iter().map(|s| s.to_string()).collect(),
             cmd: "echo".to_string(),
             args: vec![],
+            check_args: None,
         }
     }
 

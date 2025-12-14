@@ -5,6 +5,7 @@ tools:
     include: ["**/*.rs"]
     cmd: cargo
     args: [fmt, --]
+    check_args: [fmt, --, --check]
 
   - name: prettier
     include:
@@ -15,3 +16,4 @@ tools:
       - "target/**"
     cmd: npx
     args: [prettier, --write]
+    check_args: [prettier, --check]
