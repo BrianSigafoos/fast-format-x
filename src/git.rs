@@ -1,12 +1,13 @@
 //! Git operations for file discovery.
 //!
 //! Provides functions to discover staged files and find the repo root.
-//! All file-listing functions run from the repo root to ensure paths are
-//! always relative to the repo root, regardless of the current working directory.
+//! File-listing functions run from the current working directory to respect
+//! subdirectory scope, but return paths relative to the repo root so formatters
+//! can find them when running from the repo root.
 
 use anyhow::{Context, Result};
 use std::collections::BTreeSet;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Command;
 
 /// Get the root directory of the git repository.
@@ -32,17 +33,53 @@ pub fn repo_root() -> Result<PathBuf> {
     Ok(PathBuf::from(path))
 }
 
-/// Get all tracked files in the repository.
+/// Get the current directory's path relative to the repo root.
+///
+/// Returns an empty string if at the repo root, otherwise returns the path
+/// with a trailing slash (e.g., "src/", "src/utils/").
+fn current_prefix() -> Result<String> {
+    let output = Command::new("git")
+        .args(["rev-parse", "--show-prefix"])
+        .output()
+        .context("Failed to run git rev-parse --show-prefix")?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        anyhow::bail!("git rev-parse --show-prefix failed: {}", stderr.trim());
+    }
+
+    let prefix = String::from_utf8(output.stdout)
+        .context("Git output was not valid UTF-8")?
+        .trim()
+        .to_string();
+
+    Ok(prefix)
+}
+
+/// Prepend the current directory prefix to file paths.
+///
+/// Git commands run from a subdirectory return paths relative to that subdirectory.
+/// This function converts them to paths relative to the repo root.
+fn prepend_prefix(files: Vec<PathBuf>, prefix: &str) -> Vec<PathBuf> {
+    if prefix.is_empty() {
+        files
+    } else {
+        let prefix_path = PathBuf::from(prefix);
+        files.into_iter().map(|f| prefix_path.join(f)).collect()
+    }
+}
+
+/// Get all tracked files in the current directory (and subdirectories).
 ///
 /// Uses `git ls-files` to list all files tracked by git.
 /// This respects .gitignore and excludes untracked files.
+/// When run from a subdirectory, only returns files in that subdirectory.
 /// Returns paths relative to the repo root.
-///
-/// The `work_dir` parameter specifies the directory to run git from (should be repo root).
-pub fn all_files(work_dir: &Path) -> Result<Vec<PathBuf>> {
+pub fn all_files() -> Result<Vec<PathBuf>> {
+    let prefix = current_prefix()?;
+
     let output = Command::new("git")
         .args(["ls-files"])
-        .current_dir(work_dir)
         .output()
         .context("Failed to run git ls-files")?;
 
@@ -59,21 +96,21 @@ pub fn all_files(work_dir: &Path) -> Result<Vec<PathBuf>> {
         .map(PathBuf::from)
         .collect();
 
-    Ok(files)
+    Ok(prepend_prefix(files, &prefix))
 }
 
 /// Get list of staged files (excludes deleted files).
 ///
+/// When run from a subdirectory, only returns staged files in that subdirectory.
 /// Returns paths relative to the repo root.
-///
-/// The `work_dir` parameter specifies the directory to run git from (should be repo root).
-pub fn staged_files(work_dir: &Path) -> Result<Vec<PathBuf>> {
+pub fn staged_files() -> Result<Vec<PathBuf>> {
+    let prefix = current_prefix()?;
+
     // --diff-filter=d excludes deleted files
     // --name-only shows only file paths
     // --cached shows staged (index) changes
     let output = Command::new("git")
         .args(["diff", "--name-only", "--cached", "--diff-filter=d"])
-        .current_dir(work_dir)
         .output()
         .context("Failed to run git diff")?;
 
@@ -90,18 +127,19 @@ pub fn staged_files(work_dir: &Path) -> Result<Vec<PathBuf>> {
         .map(PathBuf::from)
         .collect();
 
-    Ok(files)
+    Ok(prepend_prefix(files, &prefix))
 }
 
 /// Get list of changed files (staged, unstaged, and untracked).
 ///
-/// Excludes deleted files and returns paths relative to the repo root.
-///
-/// The `work_dir` parameter specifies the directory to run git from (should be repo root).
-pub fn changed_files(work_dir: &Path) -> Result<Vec<PathBuf>> {
+/// Excludes deleted files.
+/// When run from a subdirectory, only returns changed files in that subdirectory.
+/// Returns paths relative to the repo root.
+pub fn changed_files() -> Result<Vec<PathBuf>> {
+    let prefix = current_prefix()?;
+
     let output = Command::new("git")
         .args(["status", "--porcelain=v1", "--untracked-files=normal"])
-        .current_dir(work_dir)
         .output()
         .context("Failed to run git status")?;
 
@@ -142,7 +180,7 @@ pub fn changed_files(work_dir: &Path) -> Result<Vec<PathBuf>> {
         files.insert(PathBuf::from(path_str));
     }
 
-    Ok(files.into_iter().collect())
+    Ok(prepend_prefix(files.into_iter().collect(), &prefix))
 }
 
 #[cfg(test)]
@@ -163,24 +201,21 @@ mod tests {
     fn test_staged_files_returns_vec() {
         // This test only works when run inside a git repo
         // It should at least not error, even if no files are staged
-        let root = repo_root().unwrap();
-        let result = staged_files(&root);
+        let result = staged_files();
         assert!(result.is_ok(), "Should get staged files: {:?}", result);
     }
 
     #[test]
     fn test_changed_files_returns_vec() {
         // This test only works when run inside a git repo
-        let root = repo_root().unwrap();
-        let result = changed_files(&root);
+        let result = changed_files();
         assert!(result.is_ok(), "Should get changed files: {:?}", result);
     }
 
     #[test]
     fn test_all_files_returns_tracked_files() {
         // This test only works when run inside a git repo
-        let root = repo_root().unwrap();
-        let result = all_files(&root);
+        let result = all_files();
         assert!(result.is_ok(), "Should get all files: {:?}", result);
         let files = result.unwrap();
         // Should have at least some files in a git repo
@@ -189,6 +224,26 @@ mod tests {
         assert!(
             files.iter().any(|f| f.ends_with("Cargo.toml")),
             "Should include Cargo.toml"
+        );
+    }
+
+    #[test]
+    fn test_prepend_prefix_empty() {
+        let files = vec![PathBuf::from("file.txt"), PathBuf::from("dir/other.txt")];
+        let result = prepend_prefix(files.clone(), "");
+        assert_eq!(result, files);
+    }
+
+    #[test]
+    fn test_prepend_prefix_with_subdir() {
+        let files = vec![PathBuf::from("file.txt"), PathBuf::from("sub/other.txt")];
+        let result = prepend_prefix(files, "src/");
+        assert_eq!(
+            result,
+            vec![
+                PathBuf::from("src/file.txt"),
+                PathBuf::from("src/sub/other.txt")
+            ]
         );
     }
 }

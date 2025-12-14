@@ -519,3 +519,79 @@ tools:
     assert!(stdout.contains("1 file"));
     assert!(stdout.contains("Formatted"));
 }
+
+#[test]
+fn test_all_flag_from_subdirectory_excludes_parent_files() {
+    // Regression test: running ffx --all from a subdirectory should ONLY format
+    // files in that subdirectory, not files in the parent directory.
+    //
+    // We use 'touch' as a "formatter" to detect which files get processed.
+    // We'll check file modification times to verify only subdir files are touched.
+    let config = r#"
+version: 1
+tools:
+  - name: touch-test
+    include: ["**/*.txt"]
+    cmd: touch
+"#;
+    let dir = setup_test_dir(config);
+
+    // Initialize git repo
+    Command::new("git")
+        .args(["init"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    // Create a file in the root
+    fs::write(dir.path().join("root.txt"), "root content").unwrap();
+
+    // Create a subdirectory with a file
+    let subdir = dir.path().join("subdir");
+    fs::create_dir(&subdir).unwrap();
+    fs::write(subdir.join("sub.txt"), "sub content").unwrap();
+
+    // Add all files
+    Command::new("git")
+        .args(["add", "."])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    // Run ffx from the subdirectory
+    let config_path = dir.path().join(".fast-format-x.yaml");
+    let output = Command::new(ffx_binary())
+        .current_dir(&subdir)
+        .args(["--all", "--verbose", "--config"])
+        .arg(&config_path)
+        .output()
+        .expect("Failed to run ffx");
+
+    assert!(
+        output.status.success(),
+        "ffx should succeed. stdout: {}, stderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    // Should only process 1 file (the one in subdir)
+    assert!(
+        stdout.contains("1 file"),
+        "Should only process 1 file from subdir. stdout: {stdout}"
+    );
+
+    // The verbose output should show subdir/sub.txt, not root.txt
+    assert!(
+        stderr.contains("subdir/sub.txt") || stdout.contains("subdir/sub.txt"),
+        "Should process subdir/sub.txt. stdout: {stdout}, stderr: {stderr}"
+    );
+
+    // Should NOT contain root.txt
+    assert!(
+        !stderr.contains("root.txt") && !stdout.contains("root.txt"),
+        "Should NOT process root.txt. stdout: {stdout}, stderr: {stderr}"
+    );
+}
