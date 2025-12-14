@@ -8,368 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --bg: #0a0a0f;
-      --bg-alt: #12121a;
-      --text: #e0e0e0;
-      --text-dim: #6a6a7a;
-      --accent: #00ffc8;
-      --accent-alt: #ff3366;
-      --code-bg: #1a1a24;
-      --border: #2a2a3a;
-    }
-
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    html {
-      scroll-behavior: smooth;
-    }
-
-    body {
-      font-family: 'Space Grotesk', system-ui, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      line-height: 1.6;
-      min-height: 100vh;
-    }
-
-    /* Animated grid background */
-    .bg-grid {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-image: 
-        linear-gradient(var(--border) 1px, transparent 1px),
-        linear-gradient(90deg, var(--border) 1px, transparent 1px);
-      background-size: 60px 60px;
-      opacity: 0.3;
-      z-index: -1;
-    }
-
-    .bg-glow {
-      position: fixed;
-      top: -50%;
-      left: -50%;
-      width: 200%;
-      height: 200%;
-      background: radial-gradient(circle at 30% 20%, rgba(0, 255, 200, 0.08) 0%, transparent 40%),
-                  radial-gradient(circle at 70% 80%, rgba(255, 51, 102, 0.05) 0%, transparent 40%);
-      z-index: -1;
-      animation: glow-shift 20s ease-in-out infinite alternate;
-    }
-
-    @keyframes glow-shift {
-      0% { transform: translate(0, 0); }
-      100% { transform: translate(-5%, -5%); }
-    }
-
-    .container {
-      max-width: 900px;
-      margin: 0 auto;
-      padding: 2rem;
-    }
-
-    /* Header */
-    header {
-      padding: 4rem 0 3rem;
-      text-align: center;
-    }
-
-    .logo {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 3.5rem;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      margin-bottom: 0.5rem;
-      background: linear-gradient(135deg, var(--accent) 0%, #00d4aa 50%, var(--accent-alt) 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .logo-cmd {
-      color: var(--text-dim);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 1.5rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .logo-cmd span {
-      color: var(--accent);
-    }
-
-    .tagline {
-      font-size: 1.25rem;
-      color: var(--text-dim);
-      max-width: 500px;
-      margin: 0 auto 2rem;
-    }
-
-    /* Stats bar */
-    .stats {
-      display: flex;
-      justify-content: center;
-      gap: 3rem;
-      padding: 1.5rem 0;
-      border-top: 1px solid var(--border);
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 3rem;
-    }
-
-    .stat {
-      text-align: center;
-    }
-
-    .stat-value {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 2rem;
-      font-weight: 700;
-      color: var(--accent);
-    }
-
-    .stat-label {
-      font-size: 0.85rem;
-      color: var(--text-dim);
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-    }
-
-    /* Terminal demo */
-    .terminal {
-      background: var(--code-bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      overflow: hidden;
-      margin-bottom: 3rem;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-    }
-
-    .terminal-header {
-      background: var(--bg-alt);
-      padding: 0.75rem 1rem;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .terminal-dot {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      background: var(--border);
-    }
-
-    .terminal-dot:nth-child(1) { background: #ff5f56; }
-    .terminal-dot:nth-child(2) { background: #ffbd2e; }
-    .terminal-dot:nth-child(3) { background: #27ca40; }
-
-    .terminal-title {
-      flex: 1;
-      text-align: center;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.8rem;
-      color: var(--text-dim);
-    }
-
-    .terminal-body {
-      padding: 1.5rem;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.9rem;
-      line-height: 1.8;
-    }
-
-    .terminal-line {
-      margin-bottom: 0.25rem;
-    }
-
-    .terminal-prompt {
-      color: var(--accent);
-    }
-
-    .terminal-cmd {
-      color: var(--text);
-    }
-
-    .terminal-output {
-      color: var(--text-dim);
-    }
-
-    .terminal-success {
-      color: #27ca40;
-    }
-
-    .terminal-file {
-      color: var(--accent-alt);
-    }
-
-    /* Features */
-    .features {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 1.5rem;
-      margin-bottom: 3rem;
-    }
-
-    .feature {
-      background: var(--bg-alt);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 1.5rem;
-      transition: border-color 0.2s, transform 0.2s;
-    }
-
-    .feature:hover {
-      border-color: var(--accent);
-      transform: translateY(-2px);
-    }
-
-    .feature-icon {
-      font-size: 1.5rem;
-      margin-bottom: 0.75rem;
-    }
-
-    .feature-title {
-      font-weight: 700;
-      margin-bottom: 0.5rem;
-      color: var(--text);
-    }
-
-    .feature-desc {
-      font-size: 0.9rem;
-      color: var(--text-dim);
-    }
-
-    .feature-desc code {
-      background: var(--code-bg);
-      padding: 0.15em 0.4em;
-      border-radius: 4px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.85em;
-      color: var(--accent);
-    }
-
-    /* Install section */
-    .install {
-      background: var(--bg-alt);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 2rem;
-      margin-bottom: 3rem;
-      text-align: center;
-    }
-
-    .install h2 {
-      font-size: 1.5rem;
-      margin-bottom: 1rem;
-    }
-
-    .install-cmd {
-      display: inline-block;
-      background: var(--code-bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 1rem 2rem;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 1rem;
-      color: var(--accent);
-      margin-bottom: 1rem;
-    }
-
-    .install-note {
-      font-size: 0.85rem;
-      color: var(--text-dim);
-    }
-
-    .install-note a {
-      color: var(--accent);
-      text-decoration: none;
-    }
-
-    .install-note a:hover {
-      text-decoration: underline;
-    }
-
-    /* Config example */
-    .config {
-      margin-bottom: 3rem;
-    }
-
-    .config h2 {
-      font-size: 1.5rem;
-      margin-bottom: 1rem;
-      text-align: center;
-    }
-
-    .config h2 code {
-      font-family: 'JetBrains Mono', monospace;
-      background: var(--code-bg);
-      padding: 0.3em 0.6em;
-      border-radius: 6px;
-      color: var(--accent);
-    }
-
-    .config pre {
-      background: var(--code-bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 1.5rem;
-      overflow-x: auto;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.85rem;
-      line-height: 1.6;
-    }
-
-    .config .key { color: var(--accent); }
-    .config .string { color: var(--accent-alt); }
-    .config .comment { color: var(--text-dim); }
-
-    /* Footer */
-    footer {
-      text-align: center;
-      padding: 2rem 0;
-      border-top: 1px solid var(--border);
-      color: var(--text-dim);
-      font-size: 0.9rem;
-    }
-
-    footer a {
-      color: var(--accent);
-      text-decoration: none;
-    }
-
-    footer a:hover {
-      text-decoration: underline;
-    }
-
-    /* Responsive */
-    @media (max-width: 600px) {
-      .logo {
-        font-size: 2.5rem;
-      }
-
-      .logo-cmd {
-        font-size: 1.2rem;
-      }
-
-      .stats {
-        flex-direction: column;
-        gap: 1.5rem;
-      }
-
-      .terminal-body {
-        font-size: 0.75rem;
-        padding: 1rem;
-      }
-    }
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="bg-grid"></div>
@@ -466,7 +105,11 @@
 
     <div class="install">
       <h2>Install</h2>
-      <div class="install-cmd">curl -LsSf https://raw.githubusercontent.com/BrianSigafoos/fast-format-x/main/install.sh | bash</div>
+      <div class="install-cmd">
+        <code id="install-command">curl -LsSf https://raw.githubusercontent.com/BrianSigafoos/fast-format-x/main/install.sh | bash</code>
+        <button class="copy-btn" type="button" aria-label="Copy install command">Copy</button>
+      </div>
+      <p class="copy-feedback" role="status" aria-live="polite"></p>
       <p class="install-note">
         Or with Rust: <code>cargo install --git https://github.com/briansigafoos/fast-format-x</code><br>
         <a href="https://github.com/briansigafoos/fast-format-x" target="_blank" rel="noopener noreferrer">View on GitHub</a>
@@ -513,11 +156,37 @@
 
     <footer>
       <p>
-        Built by <a href="https://github.com/BrianSigafoos" target="_blank" rel="noopener noreferrer">Brian Sigafoos</a> · 
+        Built by <a href="https://github.com/BrianSigafoos" target="_blank" rel="noopener noreferrer">Brian Sigafoos</a> ·
         <a href="https://github.com/BrianSigafoos/fast-format-x" target="_blank" rel="noopener noreferrer">GitHub</a>
       </p>
     </footer>
   </div>
+
+  <script>
+    const copyButton = document.querySelector('.copy-btn');
+    const installCommand = document.querySelector('#install-command');
+    const copyFeedback = document.querySelector('.copy-feedback');
+
+    const setFeedback = (message, type = '') => {
+      if (!copyFeedback) return;
+      copyFeedback.textContent = message;
+      copyFeedback.className = `copy-feedback ${type}`.trim();
+    };
+
+    copyButton?.addEventListener('click', async () => {
+      if (!installCommand) return;
+      const commandText = installCommand.textContent?.trim();
+
+      if (!commandText) return;
+
+      try {
+        await navigator.clipboard.writeText(commandText);
+        setFeedback('Copied install command to clipboard', 'success');
+      } catch (error) {
+        setFeedback('Unable to copy. Please copy manually.', 'error');
+      }
+    });
+  </script>
 </body>
 </html>
 
