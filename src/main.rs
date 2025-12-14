@@ -7,11 +7,13 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use colored::Colorize;
 use rayon::prelude::*;
+use std::collections::HashMap;
 use std::fs::{self, OpenOptions};
 use std::io::{stdout, IsTerminal, Write};
 use std::path::Path;
 use std::process::ExitCode;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc;
 use std::time::Instant;
 
 use config::Config;
@@ -220,39 +222,90 @@ fn run() -> Result<RunOutcome> {
         }
     }
 
+    let indicator_positions: Option<HashMap<String, usize>> = (!cli.verbose && is_tty).then(|| {
+        matches
+            .iter()
+            .enumerate()
+            .map(|(idx, m)| (m.tool.name.clone(), idx))
+            .collect()
+    });
+
     // Track if we should stop early (for --fail-fast)
     let should_stop = AtomicBool::new(false);
 
-    // Run formatters in parallel
-    let results: Vec<_> = matches
-        .par_iter()
-        .filter_map(|m| {
-            if cli.fail_fast && should_stop.load(Ordering::Relaxed) {
-                return None;
+    // Run formatters in parallel and stream results as they complete
+    let (tx, rx) = mpsc::channel();
+
+    matches.par_iter().for_each(|m| {
+        if cli.fail_fast && should_stop.load(Ordering::Relaxed) {
+            let _ = tx.send((m.tool.name.clone(), m.files.len(), None));
+            return;
+        }
+
+        let result = exec::run_tool(m.tool, &m.files, cli.verbose, cli.check, &repo_root);
+
+        if let Ok(ref r) = result {
+            if !r.success {
+                should_stop.store(true, Ordering::Relaxed);
             }
+        }
 
-            let result = exec::run_tool(m.tool, &m.files, cli.verbose, cli.check, &repo_root);
+        let _ = tx.send((m.tool.name.clone(), m.files.len(), Some(result)));
+    });
 
-            if let Ok(ref r) = result {
-                if !r.success {
-                    should_stop.store(true, Ordering::Relaxed);
+    let mut results = Vec::with_capacity(matches.len());
+
+    for _ in 0..matches.len() {
+        if let Ok((name, file_count, maybe_result)) = rx.recv() {
+            if let Some(map) = &indicator_positions {
+                if let Some(&line_idx) = map.get(&name) {
+                    let total_lines = matches.len();
+                    match &maybe_result {
+                        Some(Ok(tool_result)) => {
+                            let status = if tool_result.success {
+                                "✓".green()
+                            } else {
+                                "✗".red()
+                            };
+                            update_status_line(
+                                line_idx,
+                                total_lines,
+                                format!(
+                                    "{} [{}] {} {}",
+                                    status,
+                                    name.cyan(),
+                                    file_count,
+                                    pluralize_files(file_count)
+                                ),
+                            );
+                        }
+                        Some(Err(_)) => {
+                            update_status_line(
+                                line_idx,
+                                total_lines,
+                                format!("{} [{}] error", "✗".red(), name.cyan()),
+                            );
+                        }
+                        None => {
+                            update_status_line(
+                                line_idx,
+                                total_lines,
+                                format!("{} [{}] skipped", "✗".red(), name.cyan()),
+                            );
+                        }
+                    }
                 }
             }
 
-            Some((m.tool.name.clone(), m.files.len(), result))
-        })
-        .collect();
+            if let Some(result) = maybe_result {
+                results.push((name, file_count, result));
+            }
+        }
+    }
 
     // Sort results by tool name for deterministic output
     let mut sorted_results = results;
     sorted_results.sort_by(|a, b| a.0.cmp(&b.0));
-
-    // Move cursor back up to overwrite running indicators (non-verbose TTY only)
-    if !cli.verbose && is_tty {
-        // Move cursor up by the number of tools
-        print!("\x1b[{}A", matches.len());
-        let _ = stdout().flush();
-    }
 
     let mut all_success = true;
     let mut total_files = 0;
@@ -268,17 +321,7 @@ fn run() -> Result<RunOutcome> {
                     "✗".red()
                 };
 
-                if !cli.verbose && is_tty {
-                    // Overwrite the line and clear to end
-                    print!(
-                        "\r{} [{}] {} {}\x1b[K\n",
-                        status,
-                        name.cyan(),
-                        file_count,
-                        pluralize_files(file_count)
-                    );
-                    let _ = stdout().flush();
-                } else {
+                if cli.verbose || !is_tty {
                     println!(
                         "{} [{}] {} {}",
                         status,
@@ -309,10 +352,7 @@ fn run() -> Result<RunOutcome> {
                 }
             }
             Err(e) => {
-                if !cli.verbose && is_tty {
-                    print!("\r{} [{}] error\x1b[K\n", "✗".red(), name.cyan());
-                    let _ = stdout().flush();
-                } else {
+                if cli.verbose || !is_tty {
                     println!("{} [{}] error", "✗".red(), name.cyan());
                 }
                 eprintln!("  {e:#}");
@@ -352,6 +392,29 @@ fn num_cpus() -> u64 {
     std::thread::available_parallelism()
         .map(|n| n.get() as u64)
         .unwrap_or(4)
+}
+
+fn update_status_line(line_idx: usize, total_lines: usize, content: String) {
+    let (lines_up, lines_down) = cursor_movements(line_idx, total_lines);
+
+    if lines_up > 0 {
+        print!("\x1b[{}A", lines_up);
+    }
+
+    print!("\r{}\x1b[K\n", content);
+
+    if lines_down > 0 {
+        print!("\x1b[{}B", lines_down);
+    }
+
+    let _ = stdout().flush();
+}
+
+fn cursor_movements(line_idx: usize, total_lines: usize) -> (usize, usize) {
+    let lines_up = total_lines.saturating_sub(line_idx);
+    let lines_down = total_lines.saturating_sub(line_idx + 1);
+
+    (lines_up, lines_down)
 }
 
 /// Return "file" or "files" based on count for correct grammar.
@@ -493,6 +556,14 @@ tools:
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cursor_movement_counts_account_for_position() {
+        assert_eq!(cursor_movements(0, 3), (3, 2));
+        assert_eq!(cursor_movements(1, 3), (2, 1));
+        assert_eq!(cursor_movements(2, 3), (1, 0));
+        assert_eq!(cursor_movements(2, 2), (0, 0));
+    }
 
     #[test]
     fn exit_code_success_when_all_pass() {
