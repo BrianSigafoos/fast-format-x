@@ -1,6 +1,6 @@
 [package]
 name = "ffx"
-version = "0.1.15"
+version = "0.1.16"
 edition = "2021"
 description = "One command to auto-format every changed file. All formatters run in parallel."
 license = "MIT"
