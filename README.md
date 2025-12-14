@@ -10,6 +10,8 @@ Install the latest release with a single command:
 
 ```bash
 curl -LsSf https://raw.githubusercontent.com/BrianSigafoos/fast-format-x/main/install.sh | bash
+# Then initialize in your repo to install the pre-commit hook
+ffx init
 ```
 
 This downloads the prebuilt binary for your platform (macOS Apple Silicon or Intel).
@@ -70,18 +72,18 @@ ffx --verbose
 
 ### Pre-commit Hook
 
-Run ffx automatically before every commit:
+Run ffx automatically before every commit and scaffold a starter config if you don't have one yet:
 
 ```bash
-git config core.hooksPath .githooks
+ffx init
 ```
 
-This uses the pre-commit hook in `.githooks/pre-commit` that:
+This installs a pre-commit hook that:
 
 1. Runs `ffx` on staged files
 2. Re-stages any files modified by formatters
 
-To set this up in a new repo, copy the `.githooks/` directory and run the config command above.
+If `.fast-format-x.yaml` doesn't exist, `ffx init` also creates a template with common formatters and a reminder to customize the tools for your repository.
 
 ### AI Agent Integration
 
