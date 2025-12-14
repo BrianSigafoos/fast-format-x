@@ -51,6 +51,21 @@
         "panel": "new"
       },
       "detail": "Starts a local server at http://localhost:8000 to preview the GitHub Pages site"
+    },
+    {
+      "label": "Release Patch",
+      "type": "shell",
+      "command": "cargo",
+      "args": ["release", "patch", "--execute"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "detail": "Release a new patch version using cargo-release"
     }
   ]
 }
