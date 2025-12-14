@@ -4,9 +4,10 @@ mod git;
 mod matcher;
 
 use anyhow::{Context, Result};
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use colored::Colorize;
 use rayon::prelude::*;
+use std::fs::{self, OpenOptions};
 use std::io::{stdout, IsTerminal, Write};
 use std::path::Path;
 use std::process::ExitCode;
@@ -34,6 +35,10 @@ Exit codes:
   2  Config/general error
   3  Missing executable")]
 struct Cli {
+    /// Initialize git hooks
+    #[command(subcommand)]
+    command: Option<Command>,
+
     /// Run on all files matching config patterns
     #[arg(long)]
     all: bool,
@@ -57,6 +62,12 @@ struct Cli {
     /// Show commands and detailed output
     #[arg(long, short = 'v')]
     verbose: bool,
+}
+
+#[derive(Debug, Subcommand)]
+enum Command {
+    /// Install the pre-commit hook to run ffx automatically
+    Init,
 }
 
 fn main() -> ExitCode {
@@ -87,6 +98,14 @@ struct RunOutcome {
 fn run() -> Result<RunOutcome> {
     let start = Instant::now();
     let cli = Cli::parse();
+
+    if let Some(Command::Init) = cli.command {
+        run_init()?;
+        return Ok(RunOutcome {
+            success: true,
+            missing_executable: false,
+        });
+    }
 
     // Configure parallelism
     exec::configure_parallelism(cli.jobs as usize)?;
@@ -332,6 +351,128 @@ fn pluralize_files(count: usize) -> &'static str {
         "files"
     }
 }
+
+fn run_init() -> Result<()> {
+    let repo_root = git::repo_root().context("Failed to find git repository root")?;
+    let config_path = repo_root.join(".fast-format-x.yaml");
+    let hooks_dir = repo_root.join(".git/hooks");
+    fs::create_dir_all(&hooks_dir).context("Failed to create .git/hooks directory")?;
+
+    let hook_path = hooks_dir.join("pre-commit");
+
+    if !config_path.exists() {
+        write_config_template(&config_path)?;
+    }
+
+    if hook_path.exists() {
+        let contents = fs::read_to_string(&hook_path).unwrap_or_default();
+        if contents.contains("fast-format-x") || contents.contains("ffx") {
+            println!(
+                "Pre-commit hook already configured for ffx at {}",
+                hook_path.display()
+            );
+            return Ok(());
+        }
+
+        anyhow::bail!(
+            "A pre-commit hook already exists at {}. Please add ffx manually.",
+            hook_path.display()
+        );
+    }
+
+    fs::write(&hook_path, PRE_COMMIT_HOOK).context("Failed to write pre-commit hook")?;
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        let mut permissions = fs::metadata(&hook_path)
+            .context("Failed to read pre-commit hook metadata")?
+            .permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&hook_path, permissions)
+            .context("Failed to set pre-commit hook permissions")?;
+    }
+
+    println!(
+        "Pre-commit hook installed at {}. It will run ffx on staged files before each commit.",
+        hook_path.display()
+    );
+
+    Ok(())
+}
+
+fn write_config_template(config_path: &Path) -> Result<()> {
+    let mut file = OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .open(config_path)
+        .with_context(|| format!("Failed to create {}", config_path.display()))?;
+
+    file.write_all(CONFIG_TEMPLATE.as_bytes())
+        .context("Failed to write config template")?;
+
+    println!(
+        "Created {}. Update tools to match your project before running ffx.",
+        config_path.display()
+    );
+
+    Ok(())
+}
+
+const PRE_COMMIT_HOOK: &str = r#"#!/bin/sh
+set -e
+
+if ! command -v ffx >/dev/null 2>&1; then
+    echo "ffx not found. Install it with:"
+    echo "  curl -LsSf https://raw.githubusercontent.com/BrianSigafoos/fast-format-x/main/install.sh | bash"
+    exit 1
+fi
+
+ffx --staged
+
+git diff --name-only | while read -r file; do
+    if git diff --cached --name-only | grep -q "^$file$"; then
+        git add "$file"
+    fi
+done
+"#;
+
+const CONFIG_TEMPLATE: &str = r#"# fast-format-x configuration
+# Update the tools below to match the formatters used in your repository.
+# Remove tools you don't use and adjust commands/args before running `ffx`.
+version: 1
+
+tools:
+  - name: prettier
+    include: ["**/*.md", "**/*.yml", "**/*.yaml", "**/*.js", "**/*.ts"]
+    cmd: npx
+    args: [prettier, --write]
+
+  - name: rubocop
+    include:
+      - "**/*.rb"
+      - "**/*.rake"
+    exclude:
+      - "vendor/**"
+    cmd: bundle
+    args: [exec, rubocop, -A]
+
+  - name: ktlint
+    include: ["**/*.kt", "**/*.kts"]
+    cmd: ktlint
+    args: [-F]
+
+  - name: gofmt
+    include: ["**/*.go"]
+    cmd: gofmt
+    args: [-w]
+
+  - name: rustfmt
+    include: ["**/*.rs"]
+    cmd: cargo
+    args: [fmt, --]
+"#;
 
 #[cfg(test)]
 mod tests {

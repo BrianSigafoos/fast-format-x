@@ -6,6 +6,7 @@ use crate::config::Tool;
 use anyhow::{Context, Result};
 use rayon::prelude::*;
 use std::ffi::OsStr;
+use std::io::ErrorKind;
 use std::path::Path;
 use std::process::{Command, Output};
 
@@ -150,9 +151,22 @@ fn run_batch(tool: &Tool, files: &[&Path], verbose: bool, work_dir: &Path) -> Re
         String::new()
     };
 
-    let output: Output = cmd
-        .output()
-        .with_context(|| format!("Failed to execute '{}'", tool.cmd))?;
+    let output: Output = match cmd.output() {
+        Ok(output) => output,
+        Err(e) => {
+            let message = e.to_string();
+            if e.kind() == ErrorKind::InvalidInput || message.contains("Argument list too long") {
+                return Ok(BatchResult {
+                    success: false,
+                    stdout: String::new(),
+                    stderr: message,
+                    command,
+                });
+            }
+
+            return Err(e).with_context(|| format!("Failed to execute '{}'", tool.cmd));
+        }
+    };
 
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
