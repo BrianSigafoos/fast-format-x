@@ -245,6 +245,15 @@ header {
   color: var(--accent);
 }
 
+.feature-desc a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.feature-desc a:hover {
+  text-decoration: underline;
+}
+
 /* Install section */
 .install {
   background: var(--bg-alt);

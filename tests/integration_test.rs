@@ -32,7 +32,7 @@ fn test_help_flag() {
 
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Fast parallel formatter runner"));
+    assert!(stdout.contains("auto-format every changed file"));
     assert!(stdout.contains("--staged"));
     assert!(stdout.contains("--all"));
     assert!(stdout.contains("--config"));

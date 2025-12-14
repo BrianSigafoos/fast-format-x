@@ -18,11 +18,11 @@ use std::time::Instant;
 
 use config::Config;
 
-/// Fast parallel formatter runner for changed files
+/// One command to auto-format every changed file
 #[derive(Parser, Debug)]
 #[command(name = "ffx")]
 #[command(version)]
-#[command(about = "Fast parallel formatter runner for changed files")]
+#[command(about = "One command to auto-format every changed file. All formatters run in parallel.")]
 #[command(after_help = "\
 Examples:
   ffx                Format changed files
