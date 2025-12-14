@@ -146,6 +146,8 @@ tools:
 
 ## Development
 
+Contributions are welcome.
+
 ### Setup
 
 ```bash
