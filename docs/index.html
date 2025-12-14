@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>fast-format-x | Parallel formatter runner</title>
-  <meta name="description" content="A blazing fast CLI that runs formatters on staged files in parallel. Written in Rust.">
+  <meta name="description" content="A blazing fast CLI that runs formatters on changed files in parallel. Written in Rust.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
@@ -18,7 +18,7 @@
     <header>
       <h1 class="logo">fast-format-x</h1>
       <div class="logo-cmd"><span>$</span> ffx</div>
-      <p class="tagline">Blazing fast parallel formatter runner for staged files. Written in Rust.</p>
+      <p class="tagline">Blazing fast parallel formatter runner for all changed files. Written in Rust.</p>
     </header>
 
     <div class="stats">
@@ -46,11 +46,10 @@
       <div class="terminal-body">
         <div class="terminal-line">
           <span class="terminal-prompt">$</span>
-          <span class="terminal-cmd"> git add .</span>
+          <span class="terminal-cmd"> ffx</span>
         </div>
         <div class="terminal-line">
-          <span class="terminal-prompt">$</span>
-          <span class="terminal-cmd"> ffx</span>
+          <span class="terminal-output">Scanning for changed files...</span>
         </div>
         <div class="terminal-line terminal-output">&nbsp;</div>
         <div class="terminal-line">
@@ -88,8 +87,8 @@
       </div>
       <div class="feature">
         <div class="feature-icon">🎯</div>
-        <div class="feature-title">Staged Files Only</div>
-        <div class="feature-desc">By default, only formats files you're about to commit. Use --all for everything.</div>
+        <div class="feature-title">Changed Files Focus</div>
+        <div class="feature-desc">Automatically formats every file with changes—no staging required.</div>
       </div>
       <div class="feature">
         <div class="feature-icon">🔧</div>
