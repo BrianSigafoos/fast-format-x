@@ -1,6 +1,3 @@
 {
-  "recommendations": [
-    "rust-lang.rust",
-    "rust-lang.rust-analyzer"
-  ]
+  "recommendations": ["rust-lang.rust", "rust-lang.rust-analyzer"]
 }

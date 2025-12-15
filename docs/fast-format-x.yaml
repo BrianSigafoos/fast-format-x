@@ -1,4 +1,6 @@
-# .fast-format-x.yaml - Exemplar config with popular formatters per language
+# .fast-format-x.yaml
+# One command to auto-format every changed file. All formatters run in parallel.
+# Learn more at: https://ffx.bfoos.net
 # Install with: curl -LsSf https://ffx.bfoos.net/install.sh | bash
 # Run `ffx init` to install the pre-commit hook and scaffold this config.
 

@@ -1,122 +1,163 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>fast-format-x | The only formatter your AI needs to know</title>
-  <meta name="description" content="One command to auto-format every changed file. All formatters run in parallel. Written in Rust.">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <div class="bg-grid"></div>
-  <div class="bg-glow"></div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>fast-format-x | The only formatter your AI needs to know</title>
+    <meta
+      name="description"
+      content="One command to auto-format every changed file. All formatters run in parallel. Written in Rust."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="bg-grid"></div>
+    <div class="bg-glow"></div>
 
-  <div class="container">
-    <header>
-      <h1 class="logo">fast-format-x</h1>
-      <div class="logo-cmd"><span>$</span> ffx</div>
-      <p class="tagline">The only formatter your AI needs to know.<br>One command. Every file type. In parallel.</p>
-    </header>
+    <div class="container">
+      <header>
+        <h1 class="logo">fast-format-x</h1>
+        <div class="logo-cmd"><span>$</span> ffx</div>
+        <p class="tagline">
+          The only formatter your AI needs to know.<br />One command. Every file
+          type. In parallel.
+        </p>
+      </header>
 
-    <div class="stats">
-      <div class="stat">
-        <div class="stat-value">&lt;20ms</div>
-        <div class="stat-label">Startup</div>
-      </div>
-      <div class="stat">
-        <div class="stat-value">N×</div>
-        <div class="stat-label">CPU Cores</div>
-      </div>
-      <div class="stat">
-        <div class="stat-value">2MB</div>
-        <div class="stat-label">Binary</div>
-      </div>
-    </div>
-
-    <div class="terminal">
-      <div class="terminal-header">
-        <div class="terminal-dot"></div>
-        <div class="terminal-dot"></div>
-        <div class="terminal-dot"></div>
-        <div class="terminal-title">~/project</div>
-      </div>
-      <div class="terminal-body">
-        <div class="terminal-line">
-          <span class="terminal-prompt">$</span>
-          <span class="terminal-cmd"> ffx</span>
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-value">&lt;20ms</div>
+          <div class="stat-label">Startup</div>
         </div>
-        <div class="terminal-line">
-          <span class="terminal-output">Running formatters:</span>
+        <div class="stat">
+          <div class="stat-value">N×</div>
+          <div class="stat-label">CPU Cores</div>
         </div>
-        <div class="terminal-line">
-          <span class="terminal-success">✓</span>
-          <span class="terminal-output"> [standard] 12 files</span>
-        </div>
-        <div class="terminal-line">
-          <span class="terminal-success">✓</span>
-          <span class="terminal-output"> [ruff] 8 files</span>
-        </div>
-        <div class="terminal-line">
-          <span class="terminal-success">✓</span>
-          <span class="terminal-output"> [prettier] 5 files</span>
-        </div>
-        <div class="terminal-line terminal-output">&nbsp;</div>
-        <div class="terminal-line">
-          <span class="terminal-output">Formatted </span>
-          <span class="terminal-file">25 files</span>
-          <span class="terminal-output"> in </span>
-          <span class="terminal-success">0.14s</span>
+        <div class="stat">
+          <div class="stat-value">2MB</div>
+          <div class="stat-label">Binary</div>
         </div>
       </div>
-    </div>
 
-    <div class="features">
-      <div class="feature">
-        <div class="feature-icon">🤖</div>
-        <div class="feature-title">Built for AI Agents</div>
-        <div class="feature-desc">Replace multiple formatter instructions in your <a href="https://agents.md" target="_blank">AGENTS.md</a> with one: <code>Run ffx</code>. No wasted tokens.</div>
+      <div class="terminal">
+        <div class="terminal-header">
+          <div class="terminal-dot"></div>
+          <div class="terminal-dot"></div>
+          <div class="terminal-dot"></div>
+          <div class="terminal-title">~/project</div>
+        </div>
+        <div class="terminal-body">
+          <div class="terminal-line">
+            <span class="terminal-prompt">$</span>
+            <span class="terminal-cmd"> ffx</span>
+          </div>
+          <div class="terminal-line">
+            <span class="terminal-output">Running formatters:</span>
+          </div>
+          <div class="terminal-line">
+            <span class="terminal-success">✓</span>
+            <span class="terminal-output"> [standard] 12 files</span>
+          </div>
+          <div class="terminal-line">
+            <span class="terminal-success">✓</span>
+            <span class="terminal-output"> [ruff] 8 files</span>
+          </div>
+          <div class="terminal-line">
+            <span class="terminal-success">✓</span>
+            <span class="terminal-output"> [prettier] 5 files</span>
+          </div>
+          <div class="terminal-line terminal-output">&nbsp;</div>
+          <div class="terminal-line">
+            <span class="terminal-output">Formatted </span>
+            <span class="terminal-file">25 files</span>
+            <span class="terminal-output"> in </span>
+            <span class="terminal-success">0.14s</span>
+          </div>
+        </div>
       </div>
-      <div class="feature">
-        <div class="feature-icon">🎯</div>
-        <div class="feature-title">One Command, All Files</div>
-        <div class="feature-desc">JS, TypeScript, Python, Kotlin, Go, Rust, Ruby—each file runs through the right formatter automatically.</div>
-      </div>
-      <div class="feature">
-        <div class="feature-icon">⚡</div>
-        <div class="feature-title">Parallel Execution</div>
-        <div class="feature-desc">All formatters run simultaneously. No more waiting for sequential pre-commit hooks.</div>
-      </div>
-      <div class="feature">
-        <div class="feature-icon">🔧</div>
-        <div class="feature-title">Simple Config</div>
-        <div class="feature-desc">One <code>.fast-format-x.yaml</code> file defines all your formatters with glob patterns.</div>
-      </div>
-      <div class="feature">
-        <div class="feature-icon">🦀</div>
-        <div class="feature-title">Rust Powered</div>
-        <div class="feature-desc">Single binary, instant startup, no runtime dependencies.</div>
-      </div>
-    </div>
 
-    <div class="install">
-      <h2>Install</h2>
-      <div class="install-cmd">
-        <code id="install-command">curl -LsSf https://ffx.bfoos.net/install.sh | bash</code>
-        <button class="copy-btn" type="button" aria-label="Copy install command">Copy</button>
+      <div class="features">
+        <div class="feature">
+          <div class="feature-icon">🤖</div>
+          <div class="feature-title">Built for AI Agents</div>
+          <div class="feature-desc">
+            Replace multiple formatter instructions in your
+            <a href="https://agents.md" target="_blank">AGENTS.md</a> with one:
+            <code>Run ffx</code>. No wasted tokens.
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">🎯</div>
+          <div class="feature-title">One Command, All Files</div>
+          <div class="feature-desc">
+            JS, TypeScript, Python, Kotlin, Go, Rust, Ruby—each file runs
+            through the right formatter automatically.
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">⚡</div>
+          <div class="feature-title">Parallel Execution</div>
+          <div class="feature-desc">
+            All formatters run simultaneously. No more waiting for sequential
+            pre-commit hooks.
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">🔧</div>
+          <div class="feature-title">Simple Config</div>
+          <div class="feature-desc">
+            One <code>.fast-format-x.yaml</code> file defines all your
+            formatters with glob patterns.
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">🦀</div>
+          <div class="feature-title">Rust Powered</div>
+          <div class="feature-desc">
+            Single binary, instant startup, no runtime dependencies.
+          </div>
+        </div>
       </div>
-      <p class="copy-feedback" role="status" aria-live="polite"></p>
-      <p class="install-note">
-        Or with Rust: <code>cargo install --git https://github.com/briansigafoos/fast-format-x</code><br>
-        <a href="https://github.com/briansigafoos/fast-format-x" target="_blank" rel="noopener noreferrer">View on GitHub</a>
-      </p>
-    </div>
 
-    <div class="config">
-      <h2><code>.fast-format-x.yaml</code></h2>
-      <pre><code><span class="comment"># Config file in your project root. Remove tools you don't need.</span>
+      <div class="install">
+        <h2>Install</h2>
+        <div class="install-cmd">
+          <code id="install-command"
+            >curl -LsSf https://ffx.bfoos.net/install.sh | bash</code
+          >
+          <button
+            class="copy-btn"
+            type="button"
+            aria-label="Copy install command"
+          >
+            Copy
+          </button>
+        </div>
+        <p class="copy-feedback" role="status" aria-live="polite"></p>
+        <p class="install-note">
+          Or with Rust:
+          <code
+            >cargo install --git
+            https://github.com/briansigafoos/fast-format-x</code
+          ><br />
+          <a
+            href="https://github.com/briansigafoos/fast-format-x"
+            target="_blank"
+            rel="noopener noreferrer"
+            >View on GitHub</a
+          >
+        </p>
+      </div>
+
+      <div class="config">
+        <h2><code>.fast-format-x.yaml</code></h2>
+        <pre><code><span class="comment"># Config file in your project root. Remove tools you don't need.</span>
 <span class="key">version:</span> 1
 
 <span class="key">tools:</span>
@@ -167,45 +208,65 @@
     <span class="key">include:</span> [<span class="string">"**/*.css"</span>, <span class="string">"**/*.md"</span>, <span class="string">"**/*.json"</span>, <span class="string">"**/*.yaml"</span>, <span class="string">"**/*.html"</span>]
     <span class="key">cmd:</span> npx
     <span class="key">args:</span> [prettier, --write]</code></pre>
-      <p class="config-note">
-        <a href="fast-format-x.yaml" target="_blank" download>Download full config</a> with Java, Terraform, Rails ERB, i18n, and more.
-      </p>
+        <p class="config-note">
+          <a href="fast-format-x.yaml" target="_blank" download
+            >Download full config</a
+          >
+          with Java, Terraform, Rails ERB, i18n, and more.
+        </p>
+      </div>
+
+      <footer>
+        <p>
+          Built by
+          <a
+            href="https://briansigafoos.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Brian Sigafoos</a
+          >
+          ·
+          <a
+            href="https://briansigafoos.com/autoformat"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Launch post</a
+          >
+          ·
+          <a
+            href="https://github.com/BrianSigafoos/fast-format-x"
+            target="_blank"
+            rel="noopener noreferrer"
+            >GitHub</a
+          >
+        </p>
+      </footer>
     </div>
 
-    <footer>
-      <p>
-        Built by <a href="https://briansigafoos.com" target="_blank" rel="noopener noreferrer">Brian Sigafoos</a> · 
-        <a href="https://briansigafoos.com/autoformat" target="_blank" rel="noopener noreferrer">Launch post</a> ·
-        <a href="https://github.com/BrianSigafoos/fast-format-x" target="_blank" rel="noopener noreferrer">GitHub</a> 
-      </p>
-    </footer>
-  </div>
+    <script>
+      const copyButton = document.querySelector(".copy-btn");
+      const installCommand = document.querySelector("#install-command");
+      const copyFeedback = document.querySelector(".copy-feedback");
 
-  <script>
-    const copyButton = document.querySelector('.copy-btn');
-    const installCommand = document.querySelector('#install-command');
-    const copyFeedback = document.querySelector('.copy-feedback');
+      const setFeedback = (message, type = "") => {
+        if (!copyFeedback) return;
+        copyFeedback.textContent = message;
+        copyFeedback.className = `copy-feedback ${type}`.trim();
+      };
 
-    const setFeedback = (message, type = '') => {
-      if (!copyFeedback) return;
-      copyFeedback.textContent = message;
-      copyFeedback.className = `copy-feedback ${type}`.trim();
-    };
+      copyButton?.addEventListener("click", async () => {
+        if (!installCommand) return;
+        const commandText = installCommand.textContent?.trim();
 
-    copyButton?.addEventListener('click', async () => {
-      if (!installCommand) return;
-      const commandText = installCommand.textContent?.trim();
+        if (!commandText) return;
 
-      if (!commandText) return;
-
-      try {
-        await navigator.clipboard.writeText(commandText);
-        setFeedback('Copied install command to clipboard', 'success');
-      } catch (error) {
-        setFeedback('Unable to copy. Please copy manually.', 'error');
-      }
-    });
-  </script>
-</body>
+        try {
+          await navigator.clipboard.writeText(commandText);
+          setFeedback("Copied install command to clipboard", "success");
+        } catch (error) {
+          setFeedback("Unable to copy. Please copy manually.", "error");
+        }
+      });
+    </script>
+  </body>
 </html>
-

@@ -133,7 +133,6 @@ fn test_init_creates_config_template() {
     let config_path = dir.path().join(".fast-format-x.yaml");
     let config = fs::read_to_string(&config_path).expect("Config template should be written");
     assert!(config.contains(".fast-format-x.yaml"));
-    assert!(config.contains("Exemplar config with popular formatters"));
     assert!(config.contains("version: 1"));
 }
 
