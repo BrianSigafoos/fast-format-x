@@ -193,33 +193,29 @@ header {
   transform: translateY(-2px);
 }
 
-/* Stats bar */
-.stats {
+.hero-stats {
   display: flex;
   justify-content: center;
-  gap: 3rem;
-  padding: 1.5rem 0;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 3rem;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 2rem;
+  flex-wrap: wrap;
 }
 
-.stat {
-  text-align: center;
-}
-
-.stat-value {
+.hero-stat {
   font-family: "JetBrains Mono", monospace;
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--accent);
+  font-size: 0.9rem;
+  color: var(--text-dim);
 }
 
-.stat-label {
-  font-size: 0.85rem;
-  color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+.hero-stat strong {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.hero-stat-divider {
+  color: var(--border);
+  font-size: 0.75rem;
 }
 
 /* Terminal demo */

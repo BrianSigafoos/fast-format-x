@@ -45,22 +45,14 @@
             >View on GitHub</a
           >
         </div>
+        <div class="hero-stats">
+          <span class="hero-stat"><strong>&lt;20ms</strong> startup</span>
+          <span class="hero-stat-divider">•</span>
+          <span class="hero-stat"><strong>N×</strong> CPU cores</span>
+          <span class="hero-stat-divider">•</span>
+          <span class="hero-stat"><strong>2MB</strong> binary</span>
+        </div>
       </header>
-
-      <div class="stats">
-        <div class="stat">
-          <div class="stat-value">&lt;20ms</div>
-          <div class="stat-label">Startup</div>
-        </div>
-        <div class="stat">
-          <div class="stat-value">N×</div>
-          <div class="stat-label">CPU Cores</div>
-        </div>
-        <div class="stat">
-          <div class="stat-value">2MB</div>
-          <div class="stat-label">Binary</div>
-        </div>
-      </div>
 
       <div class="terminal">
         <div class="terminal-header">
@@ -97,6 +89,36 @@
             <span class="terminal-success">0.14s</span>
           </div>
         </div>
+      </div>
+
+      <div class="install" id="install">
+        <h2>Install</h2>
+        <div class="install-cmd">
+          <code id="install-command"
+            >curl -LsSf https://ffx.bfoos.net/install.sh | bash</code
+          >
+          <button
+            class="copy-btn"
+            type="button"
+            aria-label="Copy install command"
+          >
+            Copy
+          </button>
+        </div>
+        <p class="copy-feedback" role="status" aria-live="polite"></p>
+        <p class="install-note">
+          Or with Rust:
+          <code
+            >cargo install --git
+            https://github.com/briansigafoos/fast-format-x</code
+          ><br />
+          <a
+            href="https://github.com/briansigafoos/fast-format-x"
+            target="_blank"
+            rel="noopener noreferrer"
+            >View on GitHub</a
+          >
+        </p>
       </div>
 
       <div class="features">
@@ -140,36 +162,6 @@
             Single binary, instant startup, no runtime dependencies.
           </div>
         </div>
-      </div>
-
-      <div class="install" id="install">
-        <h2>Install</h2>
-        <div class="install-cmd">
-          <code id="install-command"
-            >curl -LsSf https://ffx.bfoos.net/install.sh | bash</code
-          >
-          <button
-            class="copy-btn"
-            type="button"
-            aria-label="Copy install command"
-          >
-            Copy
-          </button>
-        </div>
-        <p class="copy-feedback" role="status" aria-live="polite"></p>
-        <p class="install-note">
-          Or with Rust:
-          <code
-            >cargo install --git
-            https://github.com/briansigafoos/fast-format-x</code
-          ><br />
-          <a
-            href="https://github.com/briansigafoos/fast-format-x"
-            target="_blank"
-            rel="noopener noreferrer"
-            >View on GitHub</a
-          >
-        </p>
       </div>
 
       <div class="config">
