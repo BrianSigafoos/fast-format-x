@@ -2,8 +2,8 @@
 
 ## Project Overview
 
-fast-format-x (ffx) is a Rust CLI that runs formatter commands on staged files in parallel.
-It's goal is to be blazing fast and do this one thing really well.
+fast-format-x (ffx) is a Rust CLI that runs formatter commands on changed files in parallel.
+It does this one thing really well.
 
 ## Development Commands
 
