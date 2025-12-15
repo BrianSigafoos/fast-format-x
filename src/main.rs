@@ -10,7 +10,7 @@ use rayon::prelude::*;
 use std::collections::HashMap;
 use std::fs::{self, OpenOptions};
 use std::io::{stdout, IsTerminal, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
@@ -105,16 +105,36 @@ struct RunOutcome {
     missing_executable: bool,
 }
 
+impl RunOutcome {
+    fn success() -> Self {
+        Self {
+            success: true,
+            missing_executable: false,
+        }
+    }
+
+    fn missing_executable() -> Self {
+        Self {
+            success: false,
+            missing_executable: true,
+        }
+    }
+
+    fn from_success(success: bool) -> Self {
+        Self {
+            success,
+            missing_executable: false,
+        }
+    }
+}
+
 fn run() -> Result<RunOutcome> {
     let start = Instant::now();
     let cli = Cli::parse();
 
     if let Some(Command::Init) = cli.command {
         run_init()?;
-        return Ok(RunOutcome {
-            success: true,
-            missing_executable: false,
-        });
+        return Ok(RunOutcome::success());
     }
 
     // Configure parallelism
@@ -139,29 +159,11 @@ fn run() -> Result<RunOutcome> {
     }
 
     // Get files to format (respects current directory scope, returns repo-root-relative paths)
-    let (files, file_source) = if cli.all {
-        (
-            git::all_files().context("Failed to get all files")?,
-            "all tracked files",
-        )
-    } else if cli.staged {
-        (
-            git::staged_files().context("Failed to get staged files")?,
-            "staged files",
-        )
-    } else {
-        (
-            git::changed_files().context("Failed to get changed files")?,
-            "changed files",
-        )
-    };
+    let (files, file_source) = collect_target_files(&cli)?;
 
     if files.is_empty() {
         println!("No {file_source}.");
-        return Ok(RunOutcome {
-            success: true,
-            missing_executable: false,
-        });
+        return Ok(RunOutcome::success());
     }
 
     // Match files to tools
@@ -170,24 +172,12 @@ fn run() -> Result<RunOutcome> {
 
     if matches.is_empty() {
         println!("No files matched any tool patterns.");
-        return Ok(RunOutcome {
-            success: true,
-            missing_executable: false,
-        });
+        return Ok(RunOutcome::success());
     }
 
     // Check that all required commands exist
-    for m in &matches {
-        if !exec::command_exists(&m.tool.cmd) {
-            eprintln!(
-                "error: command '{}' not found (required by tool '{}')",
-                m.tool.cmd, m.tool.name
-            );
-            return Ok(RunOutcome {
-                success: false,
-                missing_executable: true,
-            });
-        }
+    if let Some(outcome) = ensure_required_commands(&matches) {
+        return Ok(outcome);
     }
 
     // Show planned work - verbose shows file list, non-verbose shows running indicators
@@ -195,43 +185,7 @@ fn run() -> Result<RunOutcome> {
     let action = if cli.check { "Checking" } else { "Running" };
     println!("{action} formatters:");
 
-    if cli.verbose {
-        for m in &matches {
-            let file_list = m
-                .files
-                .iter()
-                .map(|p| p.display().to_string())
-                .collect::<Vec<_>>()
-                .join(", ");
-            println!(
-                "- {} ({} {}): {}",
-                m.tool.name,
-                m.files.len(),
-                pluralize_files(m.files.len()),
-                file_list
-            );
-        }
-        println!();
-    } else if is_tty {
-        // Print running indicators that we'll update in-place
-        for m in &matches {
-            println!(
-                "{} [{}] {} {}",
-                "⋯".yellow(),
-                m.tool.name.cyan(),
-                m.files.len(),
-                pluralize_files(m.files.len())
-            );
-        }
-    }
-
-    let indicator_positions: Option<HashMap<String, usize>> = (!cli.verbose && is_tty).then(|| {
-        matches
-            .iter()
-            .enumerate()
-            .map(|(idx, m)| (m.tool.name.clone(), idx))
-            .collect()
-    });
+    let indicator_positions = print_planned_work(&matches, cli.verbose, is_tty);
 
     // Track if we should stop early (for --fail-fast)
     let should_stop = AtomicBool::new(false);
@@ -385,10 +339,86 @@ fn run() -> Result<RunOutcome> {
         println!("{} ({:.2}s)", fail_msg.red(), elapsed.as_secs_f64());
     }
 
-    Ok(RunOutcome {
-        success: all_success,
-        missing_executable: false,
-    })
+    Ok(RunOutcome::from_success(all_success))
+}
+
+fn collect_target_files(cli: &Cli) -> Result<(Vec<PathBuf>, &'static str)> {
+    if cli.all {
+        Ok((
+            git::all_files().context("Failed to get all files")?,
+            "all tracked files",
+        ))
+    } else if cli.staged {
+        Ok((
+            git::staged_files().context("Failed to get staged files")?,
+            "staged files",
+        ))
+    } else {
+        Ok((
+            git::changed_files().context("Failed to get changed files")?,
+            "changed files",
+        ))
+    }
+}
+
+fn ensure_required_commands(matches: &[matcher::MatchResult]) -> Option<RunOutcome> {
+    for m in matches {
+        if !exec::command_exists(&m.tool.cmd) {
+            eprintln!(
+                "error: command '{}' not found (required by tool '{}')",
+                m.tool.cmd, m.tool.name
+            );
+            return Some(RunOutcome::missing_executable());
+        }
+    }
+
+    None
+}
+
+fn print_planned_work(
+    matches: &[matcher::MatchResult],
+    verbose: bool,
+    is_tty: bool,
+) -> Option<HashMap<String, usize>> {
+    if verbose {
+        for m in matches {
+            let file_list = m
+                .files
+                .iter()
+                .map(|p| p.display().to_string())
+                .collect::<Vec<_>>()
+                .join(", ");
+            println!(
+                "- {} ({} {}): {}",
+                m.tool.name,
+                m.files.len(),
+                pluralize_files(m.files.len()),
+                file_list
+            );
+        }
+        println!();
+        None
+    } else if is_tty {
+        for m in matches {
+            println!(
+                "{} [{}] {} {}",
+                "⋯".yellow(),
+                m.tool.name.cyan(),
+                m.files.len(),
+                pluralize_files(m.files.len())
+            );
+        }
+
+        Some(
+            matches
+                .iter()
+                .enumerate()
+                .map(|(idx, m)| (m.tool.name.clone(), idx))
+                .collect(),
+        )
+    } else {
+        None
+    }
 }
 
 fn num_cpus() -> u64 {
@@ -561,5 +591,59 @@ mod tests {
         };
 
         assert_eq!(exit_code_from_outcome(&outcome), ExitCode::from(1));
+    }
+
+    #[test]
+    fn run_outcome_convenience_builders_set_flags() {
+        assert!(RunOutcome::success().success);
+        assert!(RunOutcome::missing_executable().missing_executable);
+        assert!(!RunOutcome::from_success(false).success);
+    }
+
+    #[test]
+    fn ensure_required_commands_reports_missing_executables() {
+        use crate::config::Tool;
+
+        let missing_tool = Tool {
+            name: "missing".to_string(),
+            include: vec![],
+            exclude: vec![],
+            cmd: "definitely_not_installed".to_string(),
+            args: vec![],
+            check_args: None,
+        };
+
+        let matches = vec![matcher::MatchResult {
+            tool: &missing_tool,
+            files: vec![Path::new("file.rs")],
+        }];
+
+        let outcome = ensure_required_commands(&matches);
+
+        assert!(outcome.is_some());
+        assert!(outcome.unwrap().missing_executable);
+    }
+
+    #[test]
+    fn print_planned_work_returns_positions_for_tty() {
+        use crate::config::Tool;
+
+        let tool = Tool {
+            name: "test".to_string(),
+            include: vec![],
+            exclude: vec![],
+            cmd: "echo".to_string(),
+            args: vec![],
+            check_args: None,
+        };
+
+        let matches = vec![matcher::MatchResult {
+            tool: &tool,
+            files: vec![Path::new("file.rs")],
+        }];
+
+        let positions = print_planned_work(&matches, false, true).unwrap();
+
+        assert_eq!(positions.get("test"), Some(&0));
     }
 }

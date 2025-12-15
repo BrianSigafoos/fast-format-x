@@ -25,3 +25,11 @@ Run `ffx` to auto-format all files after every code change. Don't manually forma
 ## Testing
 
 Add a test for every code change.
+
+## Rust code principles
+
+- Keep functions small and single-purpose; extract helpers instead of growing long flows.
+- Prefer immutable data and borrowed references; only clone or allocate when intent is explicit.
+- Capture fallible operations with clear context via `anyhow::Context`; avoid `unwrap`/`expect` outside tests.
+- Use focused types and constructors to represent states instead of repeating literal structs or flags.
+- Favour deterministic, readable control flow (early returns, explicit naming, predictable ordering) over cleverness.
