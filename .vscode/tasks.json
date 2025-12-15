@@ -37,6 +37,40 @@
       "detail": "Build ffx without running"
     },
     {
+      "label": "Test",
+      "type": "shell",
+      "command": "cargo",
+      "args": ["test"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "problemMatcher": ["$rustc"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "detail": "Run all tests"
+    },
+    {
+      "label": "Clippy",
+      "type": "shell",
+      "command": "cargo",
+      "args": ["clippy"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": ["$rustc"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "detail": "Run clippy linter"
+    },
+    {
       "label": "Serve GitHub Pages",
       "type": "shell",
       "command": "python3",
