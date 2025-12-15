@@ -80,16 +80,48 @@ body {
 
 /* Header */
 header {
-  padding: 4rem 0 3rem;
+  padding: 5rem 0 4rem;
   text-align: center;
 }
 
-.logo {
+.product-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  padding: 0.5rem 1rem;
+  margin-bottom: 2rem;
+}
+
+.badge-name {
   font-family: "JetBrains Mono", monospace;
-  font-size: 3.5rem;
+  font-size: 0.9rem;
   font-weight: 700;
-  letter-spacing: -0.02em;
-  margin-bottom: 0.5rem;
+  color: var(--text);
+}
+
+.badge-cmd {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.85rem;
+  color: var(--accent);
+  background: var(--code-bg);
+  padding: 0.25rem 0.6rem;
+  border-radius: 100px;
+}
+
+.hero-headline {
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-size: 4rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  margin-bottom: 1.5rem;
+  color: var(--text);
+}
+
+.hero-headline .highlight {
   background: linear-gradient(
     135deg,
     var(--accent) 0%,
@@ -101,51 +133,89 @@ header {
   background-clip: text;
 }
 
-.logo-cmd {
-  color: var(--text-dim);
-  font-family: "JetBrains Mono", monospace;
-  font-size: 1.5rem;
-  margin-bottom: 1.5rem;
-}
-
-.logo-cmd span {
-  color: var(--accent);
-}
-
 .tagline {
   font-size: 1.25rem;
   color: var(--text-dim);
-  max-width: 500px;
-  margin: 0 auto 2rem;
+  max-width: 600px;
+  margin: 0 auto 2.5rem;
+  line-height: 1.7;
 }
 
-/* Stats bar */
-.stats {
+.cta-buttons {
   display: flex;
   justify-content: center;
-  gap: 3rem;
-  padding: 1.5rem 0;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 3rem;
+  gap: 1rem;
+  margin-bottom: 1rem;
 }
 
-.stat {
-  text-align: center;
-}
-
-.stat-value {
-  font-family: "JetBrains Mono", monospace;
-  font-size: 2rem;
+.cta-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--accent);
+  color: var(--bg);
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-size: 1rem;
   font-weight: 700;
-  color: var(--accent);
+  text-decoration: none;
+  padding: 0.85rem 1.75rem;
+  border-radius: 8px;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.2s ease;
 }
 
-.stat-label {
-  font-size: 0.85rem;
+.cta-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(0, 255, 200, 0.3);
+}
+
+.cta-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: transparent;
+  color: var(--text);
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  text-decoration: none;
+  padding: 0.85rem 1.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  transition:
+    border-color 0.2s ease,
+    transform 0.15s ease;
+}
+
+.cta-secondary:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.hero-stats {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 2rem;
+  flex-wrap: wrap;
+}
+
+.hero-stat {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.9rem;
   color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+}
+
+.hero-stat strong {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.hero-stat-divider {
+  color: var(--border);
+  font-size: 0.75rem;
 }
 
 /* Terminal demo */
@@ -441,13 +511,48 @@ footer a:hover {
 }
 
 /* Responsive */
-@media (max-width: 600px) {
-  .logo {
-    font-size: 2.5rem;
+@media (max-width: 768px) {
+  .hero-headline {
+    font-size: 2.75rem;
   }
 
-  .logo-cmd {
-    font-size: 1.2rem;
+  .tagline {
+    font-size: 1.1rem;
+  }
+
+  .cta-buttons {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .cta-primary,
+  .cta-secondary {
+    width: 100%;
+    max-width: 280px;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 600px) {
+  header {
+    padding: 3rem 0 2.5rem;
+  }
+
+  .product-badge {
+    padding: 0.4rem 0.75rem;
+    gap: 0.5rem;
+  }
+
+  .badge-name {
+    font-size: 0.8rem;
+  }
+
+  .badge-cmd {
+    font-size: 0.75rem;
+  }
+
+  .hero-headline {
+    font-size: 2.25rem;
   }
 
   .stats {
