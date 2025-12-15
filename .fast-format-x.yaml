@@ -1,19 +1,33 @@
+# .fast-format-x.yaml
+# One command to auto-format every changed file. All formatters run in parallel.
+# Learn more at: https://ffx.bfoos.net
+# Install with: curl -LsSf https://ffx.bfoos.net/install.sh | bash
+# Run `ffx init` to install the pre-commit hook and scaffold this config.
+
 version: 1
 
 tools:
+  # Rust
+  # rustfmt: the official Rust formatter
   - name: rustfmt
     include: ["**/*.rs"]
+    exclude: ["target/**"]
     cmd: cargo
     args: [fmt, --]
     check_args: [fmt, --, --check]
 
+  # Web files: CSS, SCSS, Markdown, JSON, YAML, HTML
+  # Prettier: the standard for web file formatting
   - name: prettier
     include:
+      - "**/*.css"
+      - "**/*.scss"
       - "**/*.md"
-      - "**/*.yml"
+      - "**/*.json"
       - "**/*.yaml"
-    exclude:
-      - "target/**"
+      - "**/*.yml"
+      - "**/*.html"
+    exclude: ["target/**"]
     cmd: npx
     args: [prettier, --write]
     check_args: [prettier, --check]

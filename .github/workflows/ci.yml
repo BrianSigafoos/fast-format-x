@@ -35,6 +35,27 @@ jobs:
       - name: Run tests
         run: cargo test --all-features
 
+  check-install-script-sync:
+    name: Check install.sh sync
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check install.sh matches docs/install.sh
+        run: |
+          if ! diff -q install.sh docs/install.sh > /dev/null 2>&1; then
+            echo "ERROR: install.sh and docs/install.sh are out of sync!"
+            echo ""
+            echo "Please ensure both files are identical."
+            echo "The root install.sh is used for: curl -LsSf https://raw.githubusercontent.com/.../install.sh | bash"
+            echo "The docs/install.sh is used for: curl -LsSf https://ffx.bfoos.net/install.sh | bash"
+            echo ""
+            diff install.sh docs/install.sh || true
+            exit 1
+          fi
+          echo "✓ install.sh and docs/install.sh are in sync"
+
   lint:
     name: Lint
     runs-on: macos-14
