@@ -517,9 +517,9 @@ git diff --name-only | while read -r file; do
 done
 "#;
 
-/// Config template embedded from docs/fast-format-x.yaml at compile time.
+/// Config template embedded from docs/.fast-format-x.yaml at compile time.
 /// This keeps the template in one place for both `ffx init` and the website.
-const CONFIG_TEMPLATE: &str = include_str!("../docs/fast-format-x.yaml");
+const CONFIG_TEMPLATE: &str = include_str!("../docs/.fast-format-x.yaml");
 
 #[cfg(test)]
 mod tests {
