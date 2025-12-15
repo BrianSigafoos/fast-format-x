@@ -22,32 +22,7 @@ This downloads the prebuilt binary for your platform (macOS Apple Silicon or Int
 
 ### Manual Download
 
-Download binaries directly from [GitHub Releases](https://github.com/BrianSigafoos/fast-format-x/releases):
-
-| Platform            | Download                          |
-| ------------------- | --------------------------------- |
-| macOS Apple Silicon | `ffx-aarch64-apple-darwin.tar.gz` |
-| macOS Intel         | `ffx-x86_64-apple-darwin.tar.gz`  |
-
-```bash
-# Example: Download and install manually
-curl -LO https://github.com/BrianSigafoos/fast-format-x/releases/latest/download/ffx-aarch64-apple-darwin.tar.gz
-tar xzf ffx-aarch64-apple-darwin.tar.gz
-mv ffx ~/.local/bin/  # or ~/.cargo/bin/ if you have Rust installed
-```
-
-### Install from Source
-
-For contributors or if you prefer building from source:
-
-```bash
-# Requires Rust: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-git clone https://github.com/BrianSigafoos/fast-format-x.git
-cd fast-format-x
-cargo install --path .
-```
-
-The binary is installed to `~/.cargo/bin/ffx`. Make sure `~/.cargo/bin` is in your PATH.
+Binaries available on [GitHub Releases](https://github.com/BrianSigafoos/fast-format-x/releases).
 
 ## Usage
 

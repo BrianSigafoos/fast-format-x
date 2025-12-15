@@ -440,7 +440,7 @@ fn run_init() -> Result<()> {
     let hook_path = hooks_dir.join("pre-commit");
 
     if !config_path.exists() {
-        write_config_template(&config_path)?;
+        write_config_template(config_path)?;
     }
 
     if hook_path.exists() {
