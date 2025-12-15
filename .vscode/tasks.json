@@ -87,6 +87,17 @@
       "detail": "Starts a local server at http://localhost:8000 to preview the GitHub Pages site"
     },
     {
+      "label": "Install ffx",
+      "type": "shell",
+      "command": "curl -LsSf https://ffx.bfoos.net/install.sh | bash",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "detail": "Install ffx from latest release"
+    },
+    {
       "label": "Release Patch",
       "type": "shell",
       "command": "cargo",
