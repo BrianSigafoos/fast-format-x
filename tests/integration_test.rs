@@ -75,7 +75,14 @@ fn test_missing_config_file() {
     assert_eq!(output.status.code(), Some(2));
 
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("Failed to load config") || stderr.contains("Failed to read"));
+    assert!(
+        stderr.contains("nonexistent.yaml") && stderr.contains("not found"),
+        "Should show config file name and 'not found'. stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains("ffx init"),
+        "Should suggest 'ffx init'. stderr: {stderr}"
+    );
 }
 
 #[test]
@@ -134,6 +141,53 @@ fn test_init_creates_config_template() {
     let config = fs::read_to_string(&config_path).expect("Config template should be written");
     assert!(config.contains(".fast-format-x.yaml"));
     assert!(config.contains("version: 1"));
+}
+
+#[test]
+fn test_init_from_subdirectory_creates_config_in_current_dir() {
+    // Regression test: running `ffx init` from a subdirectory should create
+    // the config file in the current directory, not the repo root.
+    let dir = tempfile::tempdir().unwrap();
+
+    Command::new("git")
+        .args(["init"])
+        .current_dir(dir.path())
+        .output()
+        .expect("Failed to init git");
+
+    // Create a subdirectory
+    let subdir = dir.path().join("subdir");
+    fs::create_dir(&subdir).unwrap();
+
+    let output = Command::new(ffx_binary())
+        .current_dir(&subdir)
+        .arg("init")
+        .output()
+        .expect("Failed to run ffx init");
+
+    assert!(
+        output.status.success(),
+        "ffx init should succeed. stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Config should be in the subdirectory
+    let subdir_config = subdir.join(".fast-format-x.yaml");
+    assert!(
+        subdir_config.exists(),
+        "Config should be created in subdirectory"
+    );
+
+    // Config should NOT be in the repo root
+    let root_config = dir.path().join(".fast-format-x.yaml");
+    assert!(
+        !root_config.exists(),
+        "Config should NOT be created in repo root"
+    );
+
+    // Hook should still be in the repo root's .git/hooks
+    let hook_path = dir.path().join(".git/hooks/pre-commit");
+    assert!(hook_path.exists(), "Hook should be in repo root .git/hooks");
 }
 
 #[test]

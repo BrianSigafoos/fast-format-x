@@ -58,6 +58,13 @@ impl Tool {
 impl Config {
     /// Load and parse config from a YAML file.
     pub fn load(path: &Path) -> Result<Self> {
+        if !path.exists() {
+            anyhow::bail!(
+                "Config file '{}' not found.\n\nRun 'ffx init' to create one.",
+                path.display()
+            );
+        }
+
         let contents = fs::read_to_string(path)
             .with_context(|| format!("Failed to read config file: {}", path.display()))?;
 

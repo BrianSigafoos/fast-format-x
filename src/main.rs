@@ -18,6 +18,9 @@ use std::time::Instant;
 
 use config::Config;
 
+/// Default config file name.
+const CONFIG_FILE_NAME: &str = ".fast-format-x.yaml";
+
 /// One command to auto-format every changed file
 #[derive(Parser, Debug)]
 #[command(name = "ffx")]
@@ -55,7 +58,7 @@ struct Cli {
     check: bool,
 
     /// Path to config file
-    #[arg(long, default_value = ".fast-format-x.yaml")]
+    #[arg(long, default_value = CONFIG_FILE_NAME)]
     config: String,
 
     /// Max parallel processes (minimum 1)
@@ -428,7 +431,9 @@ fn pluralize_files(count: usize) -> &'static str {
 
 fn run_init() -> Result<()> {
     let repo_root = git::repo_root().context("Failed to find git repository root")?;
-    let config_path = repo_root.join(".fast-format-x.yaml");
+    // Config file goes in current directory (where user ran ffx init)
+    let config_path = Path::new(CONFIG_FILE_NAME);
+    // Hooks go in the git repo root
     let hooks_dir = repo_root.join(".git/hooks");
     fs::create_dir_all(&hooks_dir).context("Failed to create .git/hooks directory")?;
 
