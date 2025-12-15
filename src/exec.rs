@@ -190,11 +190,23 @@ pub fn command_exists(cmd: &str) -> bool {
 
 /// Configure rayon's thread pool size.
 pub fn configure_parallelism(jobs: usize) -> Result<()> {
-    rayon::ThreadPoolBuilder::new()
+    match rayon::ThreadPoolBuilder::new()
         .num_threads(jobs)
         .build_global()
-        .context("Failed to configure thread pool")?;
-    Ok(())
+    {
+        Ok(_) => Ok(()),
+        Err(err) => {
+            let already_built = err
+                .to_string()
+                .contains("global thread pool has already been initialized");
+
+            if already_built {
+                Ok(())
+            } else {
+                Err(err).context("Failed to configure thread pool")
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -305,6 +317,13 @@ mod tests {
         assert!(result.success);
         // Short filenames should fit in a single batch
         assert_eq!(result.batches.len(), 1);
+    }
+
+    #[test]
+    fn test_configure_parallelism_can_be_called_multiple_times() {
+        // Building the global thread pool should be a no-op when already initialized
+        configure_parallelism(2).unwrap();
+        configure_parallelism(4).unwrap();
     }
 
     #[test]
