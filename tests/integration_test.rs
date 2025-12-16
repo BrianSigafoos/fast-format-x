@@ -648,3 +648,162 @@ tools:
         "Should NOT process root.txt. stdout: {stdout}, stderr: {stderr}"
     );
 }
+
+#[test]
+fn test_changed_files_from_subdirectory_uses_default_config() {
+    // Regression test: running ffx from a subdirectory should find the config
+    // file in the repo root by default, and only process changed files in the
+    // current directory subtree.
+    let config = r#"
+version: 1
+tools:
+  - name: touch-test
+    include: ["**/*.txt"]
+    cmd: touch
+"#;
+    let dir = setup_test_dir(config);
+
+    // Initialize git repo
+    Command::new("git")
+        .args(["init"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    // Create a subdirectory
+    let subdir = dir.path().join("subdir");
+    fs::create_dir(&subdir).unwrap();
+
+    // Create and stage a file in the subdirectory
+    fs::write(subdir.join("test.txt"), "content").unwrap();
+    Command::new("git")
+        .args(["add", "."])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    // Run ffx from the subdirectory (no --config flag)
+    let output = Command::new(ffx_binary())
+        .current_dir(&subdir)
+        .output()
+        .expect("Failed to run ffx");
+
+    assert!(
+        output.status.success(),
+        "ffx should succeed from subdirectory. stdout: {}, stderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("1 file"));
+    assert!(stdout.contains("Formatted"));
+}
+
+#[test]
+fn test_subdirectory_scoping_with_similar_directory_names() {
+    // Regression test: running ffx from a subdirectory should only process files
+    // in that exact subdirectory, not in directories with similar names.
+    // This tests the fix for the prefix trimming bug in filter_by_prefix.
+    let config = r#"
+version: 1
+tools:
+  - name: touch-test
+    include: ["**/*.txt"]
+    cmd: touch
+"#;
+    let dir = setup_test_dir(config);
+
+    // Initialize git repo
+    Command::new("git")
+        .args(["init"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    // Create multiple directories with similar names
+    let src_dir = dir.path().join("src");
+    let src2_dir = dir.path().join("src2");
+    let src_nested_dir = src_dir.join("utils");
+
+    fs::create_dir(&src_dir).unwrap();
+    fs::create_dir(&src2_dir).unwrap();
+    fs::create_dir(&src_nested_dir).unwrap();
+
+    // Create files in different locations
+    fs::write(src_dir.join("file.txt"), "src content").unwrap();
+    fs::write(src2_dir.join("file.txt"), "src2 content").unwrap();
+    fs::write(src_nested_dir.join("nested.txt"), "nested content").unwrap();
+    fs::write(dir.path().join("root.txt"), "root content").unwrap();
+
+    // Add and commit all files
+    Command::new("git")
+        .args(["add", "."])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    Command::new("git")
+        .args([
+            "-c",
+            "user.email=test@example.com",
+            "-c",
+            "user.name=Test User",
+            "commit",
+            "-m",
+            "Initial commit",
+        ])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    // Modify files to make them "changed"
+    fs::write(src_dir.join("file.txt"), "modified src content").unwrap();
+    fs::write(src2_dir.join("file.txt"), "modified src2 content").unwrap();
+    fs::write(src_nested_dir.join("nested.txt"), "modified nested content").unwrap();
+    fs::write(dir.path().join("root.txt"), "modified root content").unwrap();
+
+    // Run ffx from the src/ subdirectory (no --config flag, should use repo root config)
+    let output = Command::new(ffx_binary())
+        .current_dir(&src_dir)
+        .arg("--verbose")
+        .output()
+        .expect("Failed to run ffx");
+
+    assert!(
+        output.status.success(),
+        "ffx should succeed from src/ subdirectory. stdout: {}, stderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    // Should only process files in src/ directory (src/file.txt and src/utils/nested.txt)
+    // Should NOT process files in src2/ or root
+    assert!(
+        stdout.contains("2 files"),
+        "Should process exactly 2 files from src/ directory. stdout: {stdout}"
+    );
+
+    // Should contain src/file.txt and src/utils/nested.txt in verbose output (stderr)
+    assert!(
+        stderr.contains("src/file.txt"),
+        "Should process src/file.txt. stdout: {stdout}, stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains("src/utils/nested.txt"),
+        "Should process src/utils/nested.txt. stdout: {stdout}, stderr: {stderr}"
+    );
+
+    // Should NOT contain src2/file.txt or root.txt
+    assert!(
+        !stderr.contains("src2/file.txt"),
+        "Should NOT process src2/file.txt. stdout: {stdout}, stderr: {stderr}"
+    );
+    assert!(
+        !stderr.contains("root.txt"),
+        "Should NOT process root.txt. stdout: {stdout}, stderr: {stderr}"
+    );
+}

@@ -69,6 +69,20 @@ fn prepend_prefix(files: Vec<PathBuf>, prefix: &str) -> Vec<PathBuf> {
     }
 }
 
+/// Filter files to only include those in the current directory scope.
+///
+/// When run from a subdirectory, only returns files that start with the current prefix.
+fn filter_by_prefix(files: Vec<PathBuf>, prefix: &str) -> Vec<PathBuf> {
+    if prefix.is_empty() {
+        files
+    } else {
+        files
+            .into_iter()
+            .filter(|f| f.starts_with(prefix))
+            .collect()
+    }
+}
+
 /// Get all tracked files in the current directory (and subdirectories).
 ///
 /// Uses `git ls-files` to list all files tracked by git.
@@ -127,7 +141,7 @@ pub fn staged_files() -> Result<Vec<PathBuf>> {
         .map(PathBuf::from)
         .collect();
 
-    Ok(prepend_prefix(files, &prefix))
+    Ok(filter_by_prefix(files, &prefix))
 }
 
 /// Get list of changed files (staged, unstaged, and untracked).
@@ -180,7 +194,7 @@ pub fn changed_files() -> Result<Vec<PathBuf>> {
         files.insert(PathBuf::from(path_str));
     }
 
-    Ok(prepend_prefix(files.into_iter().collect(), &prefix))
+    Ok(filter_by_prefix(files.into_iter().collect(), &prefix))
 }
 
 #[cfg(test)]
@@ -238,6 +252,31 @@ mod tests {
     fn test_prepend_prefix_with_subdir() {
         let files = vec![PathBuf::from("file.txt"), PathBuf::from("sub/other.txt")];
         let result = prepend_prefix(files, "src/");
+        assert_eq!(
+            result,
+            vec![
+                PathBuf::from("src/file.txt"),
+                PathBuf::from("src/sub/other.txt")
+            ]
+        );
+    }
+
+    #[test]
+    fn test_filter_by_prefix_empty() {
+        let files = vec![PathBuf::from("file.txt"), PathBuf::from("dir/other.txt")];
+        let result = filter_by_prefix(files.clone(), "");
+        assert_eq!(result, files);
+    }
+
+    #[test]
+    fn test_filter_by_prefix_with_subdir() {
+        let files = vec![
+            PathBuf::from("src/file.txt"),
+            PathBuf::from("src/sub/other.txt"),
+            PathBuf::from("other.txt"),
+            PathBuf::from("src2/file.txt"), // Should not match
+        ];
+        let result = filter_by_prefix(files, "src/");
         assert_eq!(
             result,
             vec![

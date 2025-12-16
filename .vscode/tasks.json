@@ -17,8 +17,7 @@
       "presentation": {
         "reveal": "always",
         "panel": "shared"
-      },
-
+      }
     },
     {
       "label": "Build",

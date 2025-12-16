@@ -143,10 +143,19 @@ fn run() -> Result<RunOutcome> {
     // Get repo root to run formatters from (ensures paths resolve correctly from subdirs)
     let repo_root = git::repo_root().context("Failed to find git repository root")?;
 
-    // Load config
+    // Load config - try current directory first, then repo root for default config
     let config_path = Path::new(&cli.config);
-    let config = Config::load(config_path)
-        .with_context(|| format!("Failed to load config from {}", cli.config))?;
+    let config = if config_path.exists() {
+        Config::load(config_path)
+    } else if cli.config == CONFIG_FILE_NAME {
+        // Default config file - try repo root
+        let repo_config_path = repo_root.join(CONFIG_FILE_NAME);
+        Config::load(&repo_config_path)
+    } else {
+        // Explicitly specified config file - use as-is (will fail with proper error)
+        Config::load(config_path)
+    }
+    .with_context(|| format!("Failed to load config from {}", cli.config))?;
 
     if cli.verbose {
         eprintln!("repo root: {}", repo_root.display());
