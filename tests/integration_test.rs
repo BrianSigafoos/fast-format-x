@@ -648,3 +648,54 @@ tools:
         "Should NOT process root.txt. stdout: {stdout}, stderr: {stderr}"
     );
 }
+
+#[test]
+fn test_changed_files_from_subdirectory_uses_default_config() {
+    // Regression test: running ffx from a subdirectory should find the config
+    // file in the repo root by default, and only process changed files in the
+    // current directory subtree.
+    let config = r#"
+version: 1
+tools:
+  - name: touch-test
+    include: ["**/*.txt"]
+    cmd: touch
+"#;
+    let dir = setup_test_dir(config);
+
+    // Initialize git repo
+    Command::new("git")
+        .args(["init"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    // Create a subdirectory
+    let subdir = dir.path().join("subdir");
+    fs::create_dir(&subdir).unwrap();
+
+    // Create and stage a file in the subdirectory
+    fs::write(subdir.join("test.txt"), "content").unwrap();
+    Command::new("git")
+        .args(["add", "."])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    // Run ffx from the subdirectory (no --config flag)
+    let output = Command::new(ffx_binary())
+        .current_dir(&subdir)
+        .output()
+        .expect("Failed to run ffx");
+
+    assert!(
+        output.status.success(),
+        "ffx should succeed from subdirectory. stdout: {}, stderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("1 file"));
+    assert!(stdout.contains("Formatted"));
+}
