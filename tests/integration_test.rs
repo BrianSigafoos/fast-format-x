@@ -745,9 +745,13 @@ tools:
 
     Command::new("git")
         .args([
-            "-c", "user.email=test@example.com",
-            "-c", "user.name=Test User",
-            "commit", "-m", "Initial commit"
+            "-c",
+            "user.email=test@example.com",
+            "-c",
+            "user.name=Test User",
+            "commit",
+            "-m",
+            "Initial commit",
         ])
         .current_dir(dir.path())
         .output()
