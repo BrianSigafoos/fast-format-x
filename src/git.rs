@@ -78,7 +78,7 @@ fn filter_by_prefix(files: Vec<PathBuf>, prefix: &str) -> Vec<PathBuf> {
     } else {
         files
             .into_iter()
-            .filter(|f| f.starts_with(prefix.trim_end_matches('/')))
+            .filter(|f| f.starts_with(prefix))
             .collect()
     }
 }
@@ -274,6 +274,7 @@ mod tests {
             PathBuf::from("src/file.txt"),
             PathBuf::from("src/sub/other.txt"),
             PathBuf::from("other.txt"),
+            PathBuf::from("src2/file.txt"), // Should not match
         ];
         let result = filter_by_prefix(files, "src/");
         assert_eq!(
