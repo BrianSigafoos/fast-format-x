@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Build and Run ffx",
+      "label": "Build and run",
       "type": "shell",
       "command": "cargo",
       "args": ["run"],
@@ -18,10 +18,10 @@
         "reveal": "always",
         "panel": "shared"
       },
-      "detail": "Build and run ffx on staged files"
+
     },
     {
-      "label": "Build ffx",
+      "label": "Build",
       "type": "shell",
       "command": "cargo",
       "args": ["build"],
@@ -33,8 +33,7 @@
       "presentation": {
         "reveal": "always",
         "panel": "shared"
-      },
-      "detail": "Build ffx without running"
+      }
     },
     {
       "label": "Test",
@@ -52,11 +51,10 @@
       "presentation": {
         "reveal": "always",
         "panel": "shared"
-      },
-      "detail": "Run all tests"
+      }
     },
     {
-      "label": "Clippy",
+      "label": "Clippy linter",
       "type": "shell",
       "command": "cargo",
       "args": ["clippy"],
@@ -67,8 +65,7 @@
       "presentation": {
         "reveal": "always",
         "panel": "shared"
-      },
-      "detail": "Run clippy linter"
+      }
     },
     {
       "label": "Serve GitHub Pages",
@@ -83,19 +80,17 @@
       "presentation": {
         "reveal": "always",
         "panel": "new"
-      },
-      "detail": "Starts a local server at http://localhost:8000 to preview the GitHub Pages site"
+      }
     },
     {
-      "label": "Install ffx",
+      "label": "Install from latest release",
       "type": "shell",
       "command": "curl -LsSf https://ffx.bfoos.net/install.sh | bash",
       "problemMatcher": [],
       "presentation": {
         "reveal": "always",
         "panel": "shared"
-      },
-      "detail": "Install ffx from latest release"
+      }
     },
     {
       "label": "Release Patch",
@@ -109,8 +104,7 @@
       "presentation": {
         "reveal": "always",
         "panel": "shared"
-      },
-      "detail": "Release a new patch version using cargo-release"
+      }
     }
   ]
 }
