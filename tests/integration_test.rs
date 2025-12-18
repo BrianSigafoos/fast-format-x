@@ -35,6 +35,7 @@ fn test_help_flag() {
     assert!(stdout.contains("auto-format every changed file"));
     assert!(stdout.contains("--staged"));
     assert!(stdout.contains("--all"));
+    assert!(stdout.contains("--base"));
     assert!(stdout.contains("--config"));
     assert!(stdout.contains("--verbose"));
     assert!(stdout.contains("init"));
@@ -805,5 +806,197 @@ tools:
     assert!(
         !stderr.contains("root.txt"),
         "Should NOT process root.txt. stdout: {stdout}, stderr: {stderr}"
+    );
+}
+
+#[test]
+fn test_base_flag_finds_branch_changes() {
+    // Test that --base flag finds files changed between a base ref and HEAD
+    let config = r#"
+version: 1
+tools:
+  - name: touch-test
+    include: ["**/*.txt"]
+    cmd: touch
+"#;
+    let dir = setup_test_dir(config);
+
+    // Initialize git repo
+    Command::new("git")
+        .args(["init"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    // Create and commit initial file
+    fs::write(dir.path().join("initial.txt"), "initial content").unwrap();
+
+    Command::new("git")
+        .args(["add", "."])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    Command::new("git")
+        .args([
+            "-c",
+            "user.email=test@example.com",
+            "-c",
+            "user.name=Test User",
+            "commit",
+            "-m",
+            "Initial commit",
+        ])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    // Create a branch
+    Command::new("git")
+        .args(["checkout", "-b", "feature"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    // Add a new file on the feature branch
+    fs::write(dir.path().join("feature.txt"), "feature content").unwrap();
+
+    Command::new("git")
+        .args(["add", "."])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    Command::new("git")
+        .args([
+            "-c",
+            "user.email=test@example.com",
+            "-c",
+            "user.name=Test User",
+            "commit",
+            "-m",
+            "Add feature file",
+        ])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    // Run ffx --base main to find files changed vs main
+    let output = Command::new(ffx_binary())
+        .current_dir(dir.path())
+        .args(["--base", "main", "--verbose"])
+        .output()
+        .expect("Failed to run ffx");
+
+    assert!(
+        output.status.success(),
+        "ffx --base should succeed. stdout: {}, stderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    // Should only process the new feature file
+    assert!(
+        stdout.contains("1 file"),
+        "Should process exactly 1 file. stdout: {stdout}"
+    );
+    assert!(
+        stderr.contains("feature.txt") || stdout.contains("feature.txt"),
+        "Should process feature.txt. stdout: {stdout}, stderr: {stderr}"
+    );
+    // Should NOT process initial.txt (it existed before branching)
+    assert!(
+        !stderr.contains("initial.txt") && !stdout.contains("initial.txt"),
+        "Should NOT process initial.txt. stdout: {stdout}, stderr: {stderr}"
+    );
+}
+
+#[test]
+fn test_base_flag_shows_correct_message_when_no_changes() {
+    // Test that --base flag shows the correct message when no files changed
+    let config = r#"
+version: 1
+tools:
+  - name: touch-test
+    include: ["**/*.txt"]
+    cmd: touch
+"#;
+    let dir = setup_test_dir(config);
+
+    // Initialize git repo
+    Command::new("git")
+        .args(["init"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    // Create and commit initial file
+    fs::write(dir.path().join("initial.txt"), "initial content").unwrap();
+
+    Command::new("git")
+        .args(["add", "."])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    Command::new("git")
+        .args([
+            "-c",
+            "user.email=test@example.com",
+            "-c",
+            "user.name=Test User",
+            "commit",
+            "-m",
+            "Initial commit",
+        ])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    // Run ffx --base HEAD (same commit, no changes)
+    let output = Command::new(ffx_binary())
+        .current_dir(dir.path())
+        .args(["--base", "HEAD"])
+        .output()
+        .expect("Failed to run ffx");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("No files changed vs HEAD"),
+        "Should show 'No files changed vs HEAD'. stdout: {stdout}"
+    );
+}
+
+#[test]
+fn test_base_flag_conflicts_with_all() {
+    let output = Command::new(ffx_binary())
+        .args(["--base", "main", "--all"])
+        .output()
+        .expect("Failed to run ffx");
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("cannot be used with") || stderr.contains("conflict"),
+        "Should show conflict error. stderr: {stderr}"
+    );
+}
+
+#[test]
+fn test_base_flag_conflicts_with_staged() {
+    let output = Command::new(ffx_binary())
+        .args(["--base", "main", "--staged"])
+        .output()
+        .expect("Failed to run ffx");
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("cannot be used with") || stderr.contains("conflict"),
+        "Should show conflict error. stderr: {stderr}"
     );
 }

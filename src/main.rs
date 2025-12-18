@@ -28,12 +28,14 @@ const CONFIG_FILE_NAME: &str = ".fast-format-x.yaml";
 #[command(about = "One command to auto-format every changed file. All formatters run in parallel.")]
 #[command(after_help = "\
 Examples:
-  ffx                Format changed files
-  ffx --staged       Format staged files only
-  ffx --all          Format all matching files
-  ffx --all --check  Check all files (CI mode, no modifications)
-  ffx --verbose      Show commands being run
-  ffx -j4            Limit to 4 parallel jobs
+  ffx                       Format changed files (uncommitted)
+  ffx --staged              Format staged files only
+  ffx --base origin/main    Format files changed vs origin/main
+  ffx --all                 Format all matching files
+  ffx --all --check         Check all files (CI mode)
+  ffx --check --base main   Check files changed vs main branch
+  ffx --verbose             Show commands being run
+  ffx -j4                   Limit to 4 parallel jobs
 
 Exit codes:
   0  Success
@@ -50,8 +52,13 @@ struct Cli {
     all: bool,
 
     /// Run only on staged files
-    #[arg(long)]
+    #[arg(long, conflicts_with = "base")]
     staged: bool,
+
+    /// Compare against a base ref (branch, tag, or commit)
+    /// Uses `git diff <base>...HEAD` to find changed files
+    #[arg(long, value_name = "REF", conflicts_with_all = ["all", "staged"])]
+    base: Option<String>,
 
     /// Check mode for CI (use check_args instead of args, no file modifications)
     #[arg(long)]
@@ -351,21 +358,27 @@ fn run() -> Result<RunOutcome> {
     Ok(RunOutcome::from_success(all_success))
 }
 
-fn collect_target_files(cli: &Cli) -> Result<(Vec<PathBuf>, &'static str)> {
+fn collect_target_files(cli: &Cli) -> Result<(Vec<PathBuf>, String)> {
     if cli.all {
         Ok((
             git::all_files().context("Failed to get all files")?,
-            "all tracked files",
+            "all tracked files".to_string(),
         ))
     } else if cli.staged {
         Ok((
             git::staged_files().context("Failed to get staged files")?,
-            "staged files",
+            "staged files".to_string(),
+        ))
+    } else if let Some(base_ref) = &cli.base {
+        Ok((
+            git::diff_files(base_ref)
+                .with_context(|| format!("Failed to get files changed vs {}", base_ref))?,
+            format!("files changed vs {}", base_ref),
         ))
     } else {
         Ok((
             git::changed_files().context("Failed to get changed files")?,
-            "changed files",
+            "changed files".to_string(),
         ))
     }
 }
