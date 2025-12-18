@@ -28,12 +28,14 @@ const CONFIG_FILE_NAME: &str = ".fast-format-x.yaml";
 #[command(about = "One command to auto-format every changed file. All formatters run in parallel.")]
 #[command(after_help = "\
 Examples:
-  ffx                Format changed files
-  ffx --staged       Format staged files only
-  ffx --all          Format all matching files
-  ffx --all --check  Check all files (CI mode, no modifications)
-  ffx --verbose      Show commands being run
-  ffx -j4            Limit to 4 parallel jobs
+  ffx                       Format changed files (uncommitted)
+  ffx --staged              Format staged files only
+  ffx --base origin/main    Format files changed vs origin/main
+  ffx --all                 Format all matching files
+  ffx --all --check         Check all files (CI mode)
+  ffx --check --base main   Check files changed vs main branch
+  ffx --verbose             Show commands being run
+  ffx -j4                   Limit to 4 parallel jobs
 
 Exit codes:
   0  Success
@@ -50,8 +52,13 @@ struct Cli {
     all: bool,
 
     /// Run only on staged files
-    #[arg(long)]
+    #[arg(long, conflicts_with = "base")]
     staged: bool,
+
+    /// Compare against a base ref (branch, tag, or commit)
+    /// Uses `git diff <base>...HEAD` to find changed files
+    #[arg(long, value_name = "REF", conflicts_with_all = ["all", "staged"])]
+    base: Option<String>,
 
     /// Check mode for CI (use check_args instead of args, no file modifications)
     #[arg(long)]
@@ -275,6 +282,8 @@ fn run() -> Result<RunOutcome> {
 
     let mut all_success = true;
     let mut total_files = 0;
+    // Collect failure details for check mode (shown after summary)
+    let mut failure_details: Vec<(String, Vec<exec::BatchResult>)> = Vec::new();
 
     for (name, file_count, result) in sorted_results {
         total_files += file_count;
@@ -297,24 +306,38 @@ fn run() -> Result<RunOutcome> {
                     );
                 }
 
-                for batch in &tool_result.batches {
-                    if cli.verbose {
-                        eprintln!("  $ {}", batch.command);
-                        if !batch.stdout.is_empty() {
-                            for line in batch.stdout.lines() {
-                                println!("  {}", line);
+                // In check mode, defer output to after summary; otherwise show inline
+                if cli.check && !tool_result.success {
+                    // Collect failed batches for later display
+                    let failed_batches: Vec<exec::BatchResult> = tool_result
+                        .batches
+                        .into_iter()
+                        .filter(|b| !b.success || !b.stdout.is_empty() || !b.stderr.is_empty())
+                        .collect();
+                    if !failed_batches.is_empty() {
+                        failure_details.push((name.clone(), failed_batches));
+                    }
+                    all_success = false;
+                } else {
+                    for batch in &tool_result.batches {
+                        if cli.verbose {
+                            eprintln!("  $ {}", batch.command);
+                            if !batch.stdout.is_empty() {
+                                for line in batch.stdout.lines() {
+                                    println!("  {}", line);
+                                }
+                            }
+                        }
+                        if !batch.stderr.is_empty() && (cli.verbose || !batch.success) {
+                            for line in batch.stderr.lines() {
+                                eprintln!("  {}", line);
                             }
                         }
                     }
-                    if !batch.stderr.is_empty() && (cli.verbose || !batch.success) {
-                        for line in batch.stderr.lines() {
-                            eprintln!("  {}", line);
-                        }
-                    }
-                }
 
-                if !tool_result.success {
-                    all_success = false;
+                    if !tool_result.success {
+                        all_success = false;
+                    }
                 }
             }
             Err(e) => {
@@ -348,24 +371,55 @@ fn run() -> Result<RunOutcome> {
         println!("{} ({:.2}s)", fail_msg.red(), elapsed.as_secs_f64());
     }
 
+    // Show failure details after summary in check mode
+    if cli.check && !failure_details.is_empty() {
+        println!();
+        println!("{}", "Details:".bold());
+        for (tool_name, batches) in failure_details {
+            println!();
+            println!("[{}]", tool_name.cyan());
+            for batch in batches {
+                if !batch.command.is_empty() {
+                    println!("  $ {}", batch.command);
+                }
+                if !batch.stdout.is_empty() {
+                    for line in batch.stdout.lines() {
+                        println!("  {}", line);
+                    }
+                }
+                if !batch.stderr.is_empty() {
+                    for line in batch.stderr.lines() {
+                        eprintln!("  {}", line);
+                    }
+                }
+            }
+        }
+    }
+
     Ok(RunOutcome::from_success(all_success))
 }
 
-fn collect_target_files(cli: &Cli) -> Result<(Vec<PathBuf>, &'static str)> {
+fn collect_target_files(cli: &Cli) -> Result<(Vec<PathBuf>, String)> {
     if cli.all {
         Ok((
             git::all_files().context("Failed to get all files")?,
-            "all tracked files",
+            "all tracked files".to_string(),
         ))
     } else if cli.staged {
         Ok((
             git::staged_files().context("Failed to get staged files")?,
-            "staged files",
+            "staged files".to_string(),
+        ))
+    } else if let Some(base_ref) = &cli.base {
+        Ok((
+            git::diff_files(base_ref)
+                .with_context(|| format!("Failed to get files changed vs {}", base_ref))?,
+            format!("files changed vs {}", base_ref),
         ))
     } else {
         Ok((
             git::changed_files().context("Failed to get changed files")?,
-            "changed files",
+            "changed files".to_string(),
         ))
     }
 }

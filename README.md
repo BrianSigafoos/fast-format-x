@@ -33,11 +33,14 @@ ffx
 # Format staged files only
 ffx --staged
 
+# Format files changed vs a base branch (great for PRs)
+ffx --base origin/main
+
 # Format all matching files
 ffx --all
 
 # Check mode for CI (uses check_args, exits non-zero if issues found)
-ffx --all --check
+ffx --check --base origin/main
 
 # Use custom config
 ffx --config path/to/.fast-format-x.yaml
@@ -124,14 +127,41 @@ tools:
 
 ### Check Mode for CI
 
-Use `--check` to verify files are formatted without modifying them:
+Use `--check` to verify files are formatted without modifying them.
+
+#### Fast PR Checks with `--base` (Recommended)
+
+For pull requests, use `--base` to only check files changed in the PR. This is much faster than checking all files:
 
 ```bash
-# In your CI pipeline
+# Check only files changed vs the base branch
+ffx --check --base origin/main
+```
+
+Example GitHub Actions workflow:
+
+```yaml
+- name: Check formatting
+  run: |
+    git fetch origin ${{ github.base_ref }} --depth=1
+    ffx --check --base origin/${{ github.base_ref }}
+```
+
+The `--base` flag uses `git diff <base>...HEAD` to find files changed since branching, so it catches all commits in the PR.
+
+#### Full Repository Check
+
+For main branch commits or scheduled checks, verify all files:
+
+```bash
 ffx --all --check
 ```
 
+#### How It Works
+
 When `--check` is passed, ffx uses `check_args` instead of `args`. If `check_args` is not defined for a tool, it falls back to `args`.
+
+If any checks fail, ffx shows a "Details" section after the summary with the full output from each failed tool, making it easy to see exactly what needs fixing.
 
 ## Exit Codes
 

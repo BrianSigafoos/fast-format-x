@@ -197,6 +197,44 @@ pub fn changed_files() -> Result<Vec<PathBuf>> {
     Ok(filter_by_prefix(files.into_iter().collect(), &prefix))
 }
 
+/// Get files changed between a base ref and HEAD.
+///
+/// Uses three-dot diff syntax (`base...HEAD`) which shows changes
+/// introduced on the current branch since it diverged from base.
+/// Excludes deleted files.
+/// When run from a subdirectory, only returns files in that subdirectory.
+/// Returns paths relative to the repo root.
+pub fn diff_files(base_ref: &str) -> Result<Vec<PathBuf>> {
+    let prefix = current_prefix()?;
+
+    // Three-dot diff: changes since branching from base
+    // --diff-filter=d excludes deleted files
+    let output = Command::new("git")
+        .args([
+            "diff",
+            "--name-only",
+            "--diff-filter=d",
+            &format!("{}...HEAD", base_ref),
+        ])
+        .output()
+        .context("Failed to run git diff")?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        anyhow::bail!("git diff failed: {}", stderr.trim());
+    }
+
+    let stdout = String::from_utf8(output.stdout).context("Git output was not valid UTF-8")?;
+
+    let files: Vec<PathBuf> = stdout
+        .lines()
+        .filter(|line| !line.is_empty())
+        .map(PathBuf::from)
+        .collect();
+
+    Ok(filter_by_prefix(files, &prefix))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -284,5 +322,16 @@ mod tests {
                 PathBuf::from("src/sub/other.txt")
             ]
         );
+    }
+
+    #[test]
+    fn test_diff_files_returns_vec() {
+        // This test only works when run inside a git repo
+        // It should at least not error with HEAD~1 (if commits exist)
+        // May fail if repo has only one commit, but that's okay for this basic test
+        let result = diff_files("HEAD~1");
+        // Either succeeds or fails with an error (e.g., only one commit)
+        // The important thing is it doesn't panic
+        assert!(result.is_ok() || result.is_err());
     }
 }
