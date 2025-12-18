@@ -282,6 +282,8 @@ fn run() -> Result<RunOutcome> {
 
     let mut all_success = true;
     let mut total_files = 0;
+    // Collect failure details for check mode (shown after summary)
+    let mut failure_details: Vec<(String, Vec<exec::BatchResult>)> = Vec::new();
 
     for (name, file_count, result) in sorted_results {
         total_files += file_count;
@@ -304,24 +306,38 @@ fn run() -> Result<RunOutcome> {
                     );
                 }
 
-                for batch in &tool_result.batches {
-                    if cli.verbose {
-                        eprintln!("  $ {}", batch.command);
-                        if !batch.stdout.is_empty() {
-                            for line in batch.stdout.lines() {
-                                println!("  {}", line);
+                // In check mode, defer output to after summary; otherwise show inline
+                if cli.check && !tool_result.success {
+                    // Collect failed batches for later display
+                    let failed_batches: Vec<exec::BatchResult> = tool_result
+                        .batches
+                        .into_iter()
+                        .filter(|b| !b.success || !b.stdout.is_empty() || !b.stderr.is_empty())
+                        .collect();
+                    if !failed_batches.is_empty() {
+                        failure_details.push((name.clone(), failed_batches));
+                    }
+                    all_success = false;
+                } else {
+                    for batch in &tool_result.batches {
+                        if cli.verbose {
+                            eprintln!("  $ {}", batch.command);
+                            if !batch.stdout.is_empty() {
+                                for line in batch.stdout.lines() {
+                                    println!("  {}", line);
+                                }
+                            }
+                        }
+                        if !batch.stderr.is_empty() && (cli.verbose || !batch.success) {
+                            for line in batch.stderr.lines() {
+                                eprintln!("  {}", line);
                             }
                         }
                     }
-                    if !batch.stderr.is_empty() && (cli.verbose || !batch.success) {
-                        for line in batch.stderr.lines() {
-                            eprintln!("  {}", line);
-                        }
-                    }
-                }
 
-                if !tool_result.success {
-                    all_success = false;
+                    if !tool_result.success {
+                        all_success = false;
+                    }
                 }
             }
             Err(e) => {
@@ -353,6 +369,31 @@ fn run() -> Result<RunOutcome> {
             "Some formatters failed"
         };
         println!("{} ({:.2}s)", fail_msg.red(), elapsed.as_secs_f64());
+    }
+
+    // Show failure details after summary in check mode
+    if cli.check && !failure_details.is_empty() {
+        println!();
+        println!("{}", "Details:".bold());
+        for (tool_name, batches) in failure_details {
+            println!();
+            println!("[{}]", tool_name.cyan());
+            for batch in batches {
+                if !batch.command.is_empty() {
+                    println!("  $ {}", batch.command);
+                }
+                if !batch.stdout.is_empty() {
+                    for line in batch.stdout.lines() {
+                        println!("  {}", line);
+                    }
+                }
+                if !batch.stderr.is_empty() {
+                    for line in batch.stderr.lines() {
+                        eprintln!("  {}", line);
+                    }
+                }
+            }
+        }
     }
 
     Ok(RunOutcome::from_success(all_success))

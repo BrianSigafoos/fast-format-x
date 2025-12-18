@@ -1000,3 +1000,120 @@ fn test_base_flag_conflicts_with_staged() {
         "Should show conflict error. stderr: {stderr}"
     );
 }
+
+#[test]
+fn test_check_mode_shows_failure_details_after_summary() {
+    // Test that --check mode shows failure details after the summary
+    // We use a script that outputs to both stdout and stderr and fails
+    let config = r#"
+version: 1
+tools:
+  - name: failing-linter
+    include: ["**/*.txt"]
+    cmd: sh
+    check_args: ["-c", "echo 'stdout: file needs formatting'; echo 'stderr: error detail' >&2; exit 1"]
+"#;
+    let dir = setup_test_dir(config);
+
+    // Initialize git repo and add matching file
+    Command::new("git")
+        .args(["init"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    fs::write(dir.path().join("test.txt"), "content").unwrap();
+
+    Command::new("git")
+        .args(["add", "."])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    let output = Command::new(ffx_binary())
+        .current_dir(dir.path())
+        .args(["--all", "--check"])
+        .output()
+        .expect("Failed to run ffx");
+
+    // Should fail
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    // Should show "Details:" section after summary
+    assert!(
+        stdout.contains("Details:"),
+        "Should show Details section. stdout: {stdout}"
+    );
+
+    // Should show the tool name in details
+    assert!(
+        stdout.contains("[failing-linter]"),
+        "Should show tool name in details. stdout: {stdout}"
+    );
+
+    // Should show stdout from the failing command
+    assert!(
+        stdout.contains("stdout: file needs formatting"),
+        "Should show stdout from failing command. stdout: {stdout}"
+    );
+
+    // Should show stderr from the failing command
+    assert!(
+        stderr.contains("stderr: error detail"),
+        "Should show stderr from failing command. stderr: {stderr}"
+    );
+
+    // Should show the command that was run
+    assert!(
+        stdout.contains("$ sh -c"),
+        "Should show command in details. stdout: {stdout}"
+    );
+}
+
+#[test]
+fn test_check_mode_no_details_on_success() {
+    // Test that --check mode does NOT show Details section when all pass
+    let config = r#"
+version: 1
+tools:
+  - name: passing-linter
+    include: ["**/*.txt"]
+    cmd: true
+"#;
+    let dir = setup_test_dir(config);
+
+    // Initialize git repo and add matching file
+    Command::new("git")
+        .args(["init"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    fs::write(dir.path().join("test.txt"), "content").unwrap();
+
+    Command::new("git")
+        .args(["add", "."])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    let output = Command::new(ffx_binary())
+        .current_dir(dir.path())
+        .args(["--all", "--check"])
+        .output()
+        .expect("Failed to run ffx");
+
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Should NOT show "Details:" section when all pass
+    assert!(
+        !stdout.contains("Details:"),
+        "Should NOT show Details section on success. stdout: {stdout}"
+    );
+}

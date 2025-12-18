@@ -82,7 +82,7 @@ fn create_batches<'a>(tool: &Tool, files: &[&'a Path], check_mode: bool) -> Vec<
 ///
 /// Files are batched by total argument bytes to avoid ARG_MAX limits.
 /// Batches run in parallel using rayon.
-/// When `verbose` is true, command strings are captured for logging.
+/// When `verbose` or `check_mode` is true, command strings are captured for logging.
 /// When `check_mode` is true, uses check_args instead of args (for CI).
 /// `work_dir` sets the working directory for the formatter commands.
 pub fn run_tool(
@@ -95,10 +95,13 @@ pub fn run_tool(
     // Create batches based on total arg bytes
     let batches = create_batches(tool, files, check_mode);
 
+    // Capture commands in verbose mode OR check mode (for failure details)
+    let capture_commands = verbose || check_mode;
+
     // Run batches in parallel
     let results: Vec<Result<BatchResult>> = batches
         .par_iter()
-        .map(|batch| run_batch(tool, batch, verbose, check_mode, work_dir))
+        .map(|batch| run_batch(tool, batch, capture_commands, check_mode, work_dir))
         .collect();
 
     // Collect results, propagating any errors
