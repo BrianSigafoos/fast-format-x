@@ -1117,3 +1117,23 @@ tools:
         "Should NOT show Details section on success. stdout: {stdout}"
     );
 }
+
+#[test]
+fn test_update_subcommand_help() {
+    let output = Command::new(ffx_binary())
+        .args(["update", "--help"])
+        .output()
+        .expect("Failed to run ffx update --help");
+
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Update ffx to the latest version"),
+        "Should show update help. stdout: {stdout}"
+    );
+    assert!(
+        stdout.contains("--check"),
+        "Should show --check flag. stdout: {stdout}"
+    );
+}

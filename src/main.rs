@@ -85,6 +85,12 @@ struct Cli {
 enum Command {
     /// Install the pre-commit hook to run ffx automatically
     Init,
+    /// Update ffx to the latest version
+    Update {
+        /// Check for updates without installing
+        #[arg(long)]
+        check: bool,
+    },
 }
 
 fn main() -> ExitCode {
@@ -139,9 +145,16 @@ fn run() -> Result<RunOutcome> {
     let start = Instant::now();
     let cli = Cli::parse();
 
-    if let Some(Command::Init) = cli.command {
-        run_init()?;
-        return Ok(RunOutcome::success());
+    match cli.command {
+        Some(Command::Init) => {
+            run_init()?;
+            return Ok(RunOutcome::success());
+        }
+        Some(Command::Update { check }) => {
+            run_update(check)?;
+            return Ok(RunOutcome::success());
+        }
+        None => {}
     }
 
     // Configure parallelism
@@ -592,12 +605,126 @@ fn write_config_template(config_path: &Path) -> Result<()> {
     Ok(())
 }
 
+/// GitHub repository for releases
+const GITHUB_REPO: &str = "BrianSigafoos/fast-format-x";
+
+/// Install script URL
+const INSTALL_SCRIPT_URL: &str = "https://ffx.bfoos.net/install.sh";
+
+fn run_update(check_only: bool) -> Result<()> {
+    let current_version = env!("CARGO_PKG_VERSION");
+    println!("Current version: v{}", current_version);
+
+    print!("Checking for updates... ");
+    let _ = stdout().flush();
+
+    let latest_version = fetch_latest_version().context("Failed to check for updates")?;
+    println!("latest is v{}", latest_version);
+
+    if is_newer_version(&latest_version, current_version) {
+        println!();
+        if check_only {
+            println!(
+                "{}",
+                format!(
+                    "Update available: v{} → v{}",
+                    current_version, latest_version
+                )
+                .yellow()
+            );
+            println!("Run 'ffx update' to install.");
+        } else {
+            println!(
+                "{}",
+                format!("Updating ffx v{} → v{}", current_version, latest_version).green()
+            );
+            println!();
+
+            run_install_script().context("Failed to run install script")?;
+
+            println!();
+            println!("{}", "Update complete!".green());
+        }
+    } else {
+        println!();
+        println!("{}", "Already up to date.".green());
+    }
+
+    Ok(())
+}
+
+/// Fetch the latest version tag from GitHub releases API.
+fn fetch_latest_version() -> Result<String> {
+    let url = format!(
+        "https://api.github.com/repos/{}/releases/latest",
+        GITHUB_REPO
+    );
+
+    let body = ureq::get(&url)
+        .header("User-Agent", "ffx-updater")
+        .call()
+        .context("Failed to connect to GitHub API")?
+        .body_mut()
+        .read_to_string()
+        .context("Failed to read GitHub API response")?;
+
+    let response: serde_json::Value =
+        serde_json::from_str(&body).context("Failed to parse GitHub API response")?;
+
+    let tag = response["tag_name"]
+        .as_str()
+        .context("No tag_name in release")?;
+
+    // Strip leading 'v' if present
+    Ok(tag.trim_start_matches('v').to_string())
+}
+
+/// Compare versions and return true if `latest` is newer than `current`.
+fn is_newer_version(latest: &str, current: &str) -> bool {
+    // Parse semver components
+    let parse_version = |v: &str| -> Option<(u32, u32, u32)> {
+        let parts: Vec<&str> = v.split('.').collect();
+        if parts.len() >= 3 {
+            Some((
+                parts[0].parse().ok()?,
+                parts[1].parse().ok()?,
+                parts[2].parse().ok()?,
+            ))
+        } else {
+            None
+        }
+    };
+
+    match (parse_version(latest), parse_version(current)) {
+        (Some(l), Some(c)) => l > c,
+        _ => latest != current,
+    }
+}
+
+/// Run the install script to download and install the latest version.
+fn run_install_script() -> Result<()> {
+    use std::process::Command;
+
+    // Use curl to fetch and pipe to bash
+    let status = Command::new("bash")
+        .arg("-c")
+        .arg(format!("curl -LsSf {} | bash", INSTALL_SCRIPT_URL))
+        .status()
+        .context("Failed to execute install script")?;
+
+    if !status.success() {
+        anyhow::bail!("Install script failed with exit code: {:?}", status.code());
+    }
+
+    Ok(())
+}
+
 const PRE_COMMIT_HOOK: &str = r#"#!/bin/sh
 set -e
 
 if ! command -v ffx >/dev/null 2>&1; then
     echo "ffx not found. Install it with:"
-    echo "  curl -LsSf https://raw.githubusercontent.com/BrianSigafoos/fast-format-x/main/install.sh | bash"
+    echo "  curl -LsSf https://ffx.bfoos.net/install.sh | bash"
     exit 1
 fi
 
@@ -708,5 +835,32 @@ mod tests {
         let positions = print_planned_work(&matches, false, true).unwrap();
 
         assert_eq!(positions.get("test"), Some(&0));
+    }
+
+    #[test]
+    fn is_newer_version_detects_major_upgrade() {
+        assert!(is_newer_version("2.0.0", "1.0.0"));
+        assert!(is_newer_version("1.1.0", "1.0.0"));
+        assert!(is_newer_version("1.0.1", "1.0.0"));
+    }
+
+    #[test]
+    fn is_newer_version_returns_false_for_same_version() {
+        assert!(!is_newer_version("1.0.0", "1.0.0"));
+        assert!(!is_newer_version("0.1.22", "0.1.22"));
+    }
+
+    #[test]
+    fn is_newer_version_returns_false_for_older_version() {
+        assert!(!is_newer_version("1.0.0", "2.0.0"));
+        assert!(!is_newer_version("1.0.0", "1.1.0"));
+        assert!(!is_newer_version("1.0.0", "1.0.1"));
+    }
+
+    #[test]
+    fn is_newer_version_handles_double_digit_versions() {
+        assert!(is_newer_version("0.1.23", "0.1.22"));
+        assert!(is_newer_version("0.2.0", "0.1.99"));
+        assert!(is_newer_version("1.0.0", "0.99.99"));
     }
 }
