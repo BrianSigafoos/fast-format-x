@@ -821,9 +821,9 @@ tools:
 "#;
     let dir = setup_test_dir(config);
 
-    // Initialize git repo
+    // Initialize git repo with explicit branch name (CI may default to master)
     Command::new("git")
-        .args(["init"])
+        .args(["init", "-b", "main"])
         .current_dir(dir.path())
         .output()
         .unwrap();
