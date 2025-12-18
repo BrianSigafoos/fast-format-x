@@ -7,7 +7,7 @@ set -e
 # Check if ffx is installed
 if ! command -v ffx >/dev/null 2>&1; then
     echo "ffx not found. Install it with:"
-    echo "  curl -LsSf https://raw.githubusercontent.com/BrianSigafoos/fast-format-x/main/install.sh | bash"
+    echo "  curl -LsSf https://ffx.bfoos.net/install.sh | bash"
     exit 1
 fi
 
