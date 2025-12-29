@@ -517,6 +517,49 @@ tools:
 }
 
 #[test]
+fn test_failure_outputs_stdout_in_non_verbose_mode() {
+    let config = r#"
+version: 1
+tools:
+  - name: stdout-failing
+    include: ["**/*.txt"]
+    cmd: sh
+    args: ["-c", "echo 'stdout: file needs formatting'; exit 1"]
+"#;
+    let dir = setup_test_dir(config);
+
+    // Initialize git repo and add matching file
+    Command::new("git")
+        .args(["init"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    fs::write(dir.path().join("test.txt"), "content").unwrap();
+
+    Command::new("git")
+        .args(["add", "."])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    let output = Command::new(ffx_binary())
+        .current_dir(dir.path())
+        .arg("--all")
+        .output()
+        .expect("Failed to run ffx");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("stdout: file needs formatting"),
+        "Should show stdout from failing command. stdout: {stdout}"
+    );
+}
+
+#[test]
 fn test_all_flag_from_subdirectory() {
     // Regression test: running ffx from a subdirectory should find files correctly.
     // The issue was that git ls-files returns paths relative to CWD, but formatters
