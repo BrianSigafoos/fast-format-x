@@ -640,7 +640,7 @@ fn run_update(check_only: bool) -> Result<()> {
             );
             println!();
 
-            run_install_script().context("Failed to run install script")?;
+            run_install_script(&latest_version).context("Failed to run install script")?;
 
             println!();
             println!("{}", "Update complete!".green());
@@ -701,14 +701,16 @@ fn is_newer_version(latest: &str, current: &str) -> bool {
     }
 }
 
-/// Run the install script to download and install the latest version.
-fn run_install_script() -> Result<()> {
+/// Run the install script to download and install a specific version.
+fn run_install_script(version: &str) -> Result<()> {
     use std::process::Command;
 
-    // Use curl to fetch and pipe to bash
+    // Pass version via FFX_VERSION env var to avoid duplicate API calls
+    // and ensure consistency with the version we already fetched
     let status = Command::new("bash")
         .arg("-c")
         .arg(format!("curl -LsSf {} | bash", INSTALL_SCRIPT_URL))
+        .env("FFX_VERSION", format!("v{}", version))
         .status()
         .context("Failed to execute install script")?;
 
