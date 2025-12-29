@@ -335,10 +335,10 @@ fn run() -> Result<RunOutcome> {
                     for batch in &tool_result.batches {
                         if cli.verbose {
                             eprintln!("  $ {}", batch.command);
-                            if !batch.stdout.is_empty() {
-                                for line in batch.stdout.lines() {
-                                    println!("  {}", line);
-                                }
+                        }
+                        if !batch.stdout.is_empty() && (cli.verbose || !batch.success) {
+                            for line in batch.stdout.lines() {
+                                println!("  {}", line);
                             }
                         }
                         if !batch.stderr.is_empty() && (cli.verbose || !batch.success) {
