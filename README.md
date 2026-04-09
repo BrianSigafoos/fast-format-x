@@ -42,6 +42,9 @@ ffx --all
 # Check mode for CI (uses check_args, exits non-zero if issues found)
 ffx --check --base origin/main
 
+# Skip one or more tools by configured name
+ffx --check --base origin/main --skip swiftformat
+
 # Use custom config
 ffx --config path/to/.fast-format-x.yaml
 
@@ -144,10 +147,12 @@ Example GitHub Actions workflow:
 - name: Check formatting
   run: |
     git fetch origin ${{ github.base_ref }} --depth=1
-    ffx --check --base origin/${{ github.base_ref }}
+    ffx --check --base origin/${{ github.base_ref }} --skip swiftformat
 ```
 
 The `--base` flag uses `git diff <base>...HEAD` to find files changed since branching, so it catches all commits in the PR.
+
+If a specific formatter is intentionally unavailable in CI, use `--skip <tool-name>` to omit it by its configured `name`. You can pass the flag multiple times or as a comma-separated list.
 
 #### Full Repository Check
 

@@ -18,7 +18,7 @@ pub struct Config {
 }
 
 /// A formatter tool configuration.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Tool {
     /// Human-readable name for output (e.g., "rubocop", "prettier")
     pub name: String,

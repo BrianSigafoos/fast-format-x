@@ -36,6 +36,7 @@ fn test_help_flag() {
     assert!(stdout.contains("--staged"));
     assert!(stdout.contains("--all"));
     assert!(stdout.contains("--base"));
+    assert!(stdout.contains("--skip"));
     assert!(stdout.contains("--config"));
     assert!(stdout.contains("--verbose"));
     assert!(stdout.contains("init"));
@@ -473,6 +474,55 @@ tools:
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("not found"));
+}
+
+#[test]
+fn test_skip_flag_avoids_missing_command_and_allows_later_tool_to_match() {
+    let config = r#"
+version: 1
+tools:
+  - name: missing
+    include: ["**/*.txt"]
+    cmd: this_command_does_not_exist_xyz
+
+  - name: fallback
+    include: ["**/*.txt"]
+    cmd: echo
+    args: [formatted]
+"#;
+    let dir = setup_test_dir(config);
+
+    Command::new("git")
+        .args(["init"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    fs::write(dir.path().join("test.txt"), "content").unwrap();
+
+    Command::new("git")
+        .args(["add", "."])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    let output = Command::new(ffx_binary())
+        .current_dir(dir.path())
+        .args(["--all", "--skip", "missing"])
+        .output()
+        .expect("Failed to run ffx");
+
+    assert!(
+        output.status.success(),
+        "ffx should succeed when the missing tool is skipped. stdout: {}, stderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stdout.contains("[fallback]"));
+    assert!(!stderr.contains("not found"));
 }
 
 #[test]
