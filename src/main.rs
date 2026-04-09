@@ -7,7 +7,7 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use colored::Colorize;
 use rayon::prelude::*;
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::fs::{self, OpenOptions};
 use std::io::{stdout, IsTerminal, Write};
 use std::path::{Path, PathBuf};
@@ -34,6 +34,7 @@ Examples:
   ffx --all                 Format all matching files
   ffx --all --check         Check all files (CI mode)
   ffx --check --base main   Check files changed vs main branch
+  ffx --check --base main --skip swiftformat
   ffx --verbose             Show commands being run
   ffx -j4                   Limit to 4 parallel jobs
 
@@ -63,6 +64,10 @@ struct Cli {
     /// Check mode for CI (use check_args instead of args, no file modifications)
     #[arg(long)]
     check: bool,
+
+    /// Skip one or more tools by configured name
+    #[arg(long, value_name = "TOOL", value_delimiter = ',')]
+    skip: Vec<String>,
 
     /// Path to config file
     #[arg(long, default_value = CONFIG_FILE_NAME)]
@@ -176,13 +181,26 @@ fn run() -> Result<RunOutcome> {
         Config::load(config_path)
     }
     .with_context(|| format!("Failed to load config from {}", cli.config))?;
+    let skipped_tools = skipped_tool_names(&cli.skip);
+    let active_tools = filter_skipped_tools(&config.tools, &skipped_tools);
 
     if cli.verbose {
         eprintln!("repo root: {}", repo_root.display());
-        eprintln!("config: {} ({} tools)", cli.config, config.tools.len());
+        eprintln!(
+            "config: {} ({} active tools, {} configured)",
+            cli.config,
+            active_tools.len(),
+            config.tools.len()
+        );
         eprintln!("jobs: {}", cli.jobs);
         if cli.check {
             eprintln!("mode: check (no modifications)");
+        }
+        if !skipped_tools.is_empty() {
+            eprintln!(
+                "skipping tools: {}",
+                skipped_tools.iter().cloned().collect::<Vec<_>>().join(", ")
+            );
         }
         eprintln!();
     }
@@ -197,7 +215,7 @@ fn run() -> Result<RunOutcome> {
 
     // Match files to tools
     let matches =
-        matcher::match_files(&files, &config.tools).context("Failed to match files to tools")?;
+        matcher::match_files(&files, &active_tools).context("Failed to match files to tools")?;
 
     if matches.is_empty() {
         println!("No files matched any tool patterns.");
@@ -410,6 +428,26 @@ fn run() -> Result<RunOutcome> {
     }
 
     Ok(RunOutcome::from_success(all_success))
+}
+
+fn skipped_tool_names(skip_args: &[String]) -> BTreeSet<String> {
+    skip_args
+        .iter()
+        .map(|name| name.trim())
+        .filter(|name| !name.is_empty())
+        .map(ToOwned::to_owned)
+        .collect()
+}
+
+fn filter_skipped_tools(
+    tools: &[config::Tool],
+    skipped_tools: &BTreeSet<String>,
+) -> Vec<config::Tool> {
+    tools
+        .iter()
+        .filter(|tool| !skipped_tools.contains(&tool.name))
+        .cloned()
+        .collect()
 }
 
 fn collect_target_files(cli: &Cli) -> Result<(Vec<PathBuf>, String)> {
