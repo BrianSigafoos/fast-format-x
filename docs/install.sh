@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 # Fast-format-x (ffx) installer
 # Usage: curl -LsSf https://ffx.bfoos.net/install.sh | bash
+# Pin a version: curl -LsSf https://ffx.bfoos.net/install.sh | FFX_VERSION=v0.2.0 bash
 #
-# This script downloads and installs the ffx binary for your platform.
+# This script downloads, verifies, and installs the ffx binary for your platform.
 
 set -euo pipefail
 
 REPO="BrianSigafoos/fast-format-x"
 BINARY_NAME="ffx"
+RELEASES_URL="https://github.com/${REPO}/releases"
+CHECKSUM_FILE="SHA256SUMS.txt"
 
 # Colors for output
 RED='\033[0;31m'
@@ -66,14 +69,79 @@ detect_arch() {
     esac
 }
 
-# Get the latest release tag from GitHub
-get_latest_version() {
-    local latest
-    latest=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-    if [ -z "$latest" ]; then
-        error "Could not determine latest version. Check https://github.com/${REPO}/releases"
+# Download an HTTPS release asset without relying on the GitHub REST API.
+download() {
+    curl --proto '=https' --tlsv1.2 -fsSL "$@"
+}
+
+validate_version() {
+    case "$1" in
+        ""|*[!A-Za-z0-9._-]*)
+            error "Invalid FFX_VERSION: $1"
+            ;;
+    esac
+}
+
+# The stable latest-download URL redirects to an immutable versioned release URL.
+version_from_redirect_headers() {
+    local headers="$1"
+    local line location version
+    local prefix="${RELEASES_URL}/download/"
+    local suffix="/${CHECKSUM_FILE}"
+
+    while IFS= read -r line; do
+        line=${line%$'\r'}
+        case "$line" in
+            [Ll]ocation:\ *)
+                location=${line#*: }
+                case "$location" in
+                    "${prefix}"*"${suffix}")
+                        version=${location#"${prefix}"}
+                        version=${version%"${suffix}"}
+                        echo "$version"
+                        return 0
+                        ;;
+                esac
+                ;;
+        esac
+    done < "$headers"
+
+    return 1
+}
+
+calculate_sha256() {
+    local file="$1"
+
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$file" | awk '{print $1}'
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 "$file" | awk '{print $1}'
+    else
+        error "Cannot verify download: sha256sum or shasum is required"
     fi
-    echo "$latest"
+}
+
+verify_checksum() {
+    local archive="$1"
+    local asset_name="$2"
+    local checksums="$3"
+    local expected actual
+
+    expected=$(awk -v asset="$asset_name" '$2 == asset {print $1; exit}' "$checksums")
+    if [ -z "$expected" ]; then
+        error "No checksum found for ${asset_name} in ${CHECKSUM_FILE}"
+    fi
+
+    if [ "${#expected}" -ne 64 ] || printf '%s' "$expected" | grep -q '[^0-9A-Fa-f]'; then
+        error "Invalid checksum for ${asset_name} in ${CHECKSUM_FILE}"
+    fi
+
+    actual=$(calculate_sha256 "$archive")
+    if [ "$(printf '%s' "$actual" | tr '[:upper:]' '[:lower:]')" != "$(printf '%s' "$expected" | tr '[:upper:]' '[:lower:]')" ]; then
+        error "Checksum verification failed for ${asset_name}"
+    fi
+
+    info "Verified SHA-256 checksum"
 }
 
 # Determine install directory
@@ -101,7 +169,8 @@ main() {
     echo "  ╰─────────────────────────────────────────╯"
     echo ""
 
-    local os arch version install_dir target download_url
+    local os arch version install_dir target asset_name release_base
+    local checksum_url download_url headers_file checksum_path archive_path
 
     os=$(detect_os)
     arch=$(detect_arch)
@@ -126,24 +195,53 @@ main() {
         error "Unsupported macOS architecture: $arch"
     fi
 
-    # Get latest version
-    version=${FFX_VERSION:-$(get_latest_version)}
-    info "Installing ffx ${version}"
-
-    # Build download URL
-    download_url="https://github.com/${REPO}/releases/download/${version}/${BINARY_NAME}-${target}.tar.gz"
-    info "Downloading from: $download_url"
-
     # Create temp directory
     TMP_DIR=$(mktemp -d)
     trap 'rm -rf "$TMP_DIR"' EXIT
 
-    # Download and extract
-    if ! curl -fsSL "$download_url" -o "$TMP_DIR/ffx.tar.gz"; then
-        error "Failed to download ffx. Check that version ${version} exists at https://github.com/${REPO}/releases"
+    asset_name="${BINARY_NAME}-${target}.tar.gz"
+    headers_file="$TMP_DIR/headers"
+    checksum_path="$TMP_DIR/${CHECKSUM_FILE}"
+    archive_path="$TMP_DIR/$asset_name"
+
+    if [ -n "${FFX_VERSION:-}" ]; then
+        version="$FFX_VERSION"
+        validate_version "$version"
+        release_base="${RELEASES_URL}/download/${version}"
+        checksum_url="${release_base}/${CHECKSUM_FILE}"
+
+        if ! download "$checksum_url" -o "$checksum_path"; then
+            error "Failed to download checksums for ffx ${version}. Check that the release exists at ${RELEASES_URL}"
+        fi
+    else
+        info "Resolving latest release"
+        checksum_url="${RELEASES_URL}/latest/download/${CHECKSUM_FILE}"
+
+        if ! download -D "$headers_file" "$checksum_url" -o "$checksum_path"; then
+            error "Failed to resolve the latest ffx release at ${RELEASES_URL}"
+        fi
+
+        if ! version=$(version_from_redirect_headers "$headers_file"); then
+            error "Could not determine the version from GitHub's latest-release redirect"
+        fi
+        validate_version "$version"
+        release_base="${RELEASES_URL}/download/${version}"
     fi
 
-    tar -xzf "$TMP_DIR/ffx.tar.gz" -C "$TMP_DIR"
+    info "Installing ffx ${version}"
+
+    download_url="${release_base}/${asset_name}"
+    info "Downloading from: $download_url"
+
+    if ! download "$download_url" -o "$archive_path"; then
+        error "Failed to download ffx ${version} for ${target} from ${RELEASES_URL}"
+    fi
+
+    verify_checksum "$archive_path" "$asset_name" "$checksum_path"
+
+    if ! tar -xzf "$archive_path" -C "$TMP_DIR" "$BINARY_NAME"; then
+        error "Failed to extract ${asset_name}"
+    fi
 
     # Determine install location
     install_dir=$(get_install_dir)

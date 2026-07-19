@@ -743,8 +743,7 @@ fn is_newer_version(latest: &str, current: &str) -> bool {
 fn run_install_script(version: &str) -> Result<()> {
     use std::process::Command;
 
-    // Pass version via FFX_VERSION env var to avoid duplicate API calls
-    // and ensure consistency with the version we already fetched
+    // Pin the version already checked so installation cannot race a newer release.
     let status = Command::new("bash")
         .arg("-c")
         .arg(format!("curl -LsSf {} | bash", INSTALL_SCRIPT_URL))

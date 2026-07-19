@@ -18,7 +18,13 @@ curl -LsSf https://ffx.bfoos.net/install.sh | bash
 ffx init
 ```
 
-This downloads the prebuilt binary for your platform (macOS Apple Silicon or Intel).
+The installer supports macOS and Linux on Apple Silicon/ARM64 and Intel/AMD64. It resolves the latest release through GitHub's stable release-asset redirect, without calling the rate-limited GitHub REST API, and verifies the archive against the release's `SHA256SUMS.txt` before extracting it.
+
+To install a specific release instead:
+
+```bash
+curl -LsSf https://ffx.bfoos.net/install.sh | FFX_VERSION=v0.2.0 bash
+```
 
 ### Manual Download
 
@@ -248,3 +254,5 @@ cargo release patch --dry-run
 ```
 
 The push triggers the GitHub Actions release workflow, which builds binaries for all platforms and creates a GitHub Release.
+
+Each release must include `SHA256SUMS.txt`; the installer treats the checksum file and the matching platform archive as one versioned release. `install.sh` is the source of truth for both supported entry URLs. After editing it, run `scripts/sync-install.sh` to refresh the GitHub Pages copy in `docs/install.sh`.

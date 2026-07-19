@@ -45,6 +45,12 @@ jobs:
       - name: Check formatting
         run: cargo fmt --check
 
+      - name: Check published installer copy
+        run: scripts/sync-install.sh --check
+
+      - name: Test installer
+        run: tests/install_test.sh
+
   # Build binaries for each target platform
   build:
     name: Build ${{ matrix.target }}
@@ -132,6 +138,7 @@ jobs:
       - name: Generate checksums
         run: |
           cd release-assets
+          # install.sh verifies archives against this file before extraction.
           sha256sum * > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
