@@ -7,6 +7,7 @@
 
 use anyhow::{Context, Result};
 use std::collections::BTreeSet;
+use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -31,6 +32,42 @@ pub fn repo_root() -> Result<PathBuf> {
         .to_string();
 
     Ok(PathBuf::from(path))
+}
+
+/// Normalize explicitly selected files to repository-root-relative paths.
+///
+/// Explicit paths may be absolute or relative to the caller's current
+/// directory. Every selection must be an existing regular file inside the
+/// current repository.
+pub fn explicit_files(files: &[PathBuf], repo_root: &std::path::Path) -> Result<Vec<PathBuf>> {
+    let current_directory = std::env::current_dir().context("Failed to read current directory")?;
+    let canonical_root = fs::canonicalize(repo_root)
+        .with_context(|| format!("Failed to resolve repository root {}", repo_root.display()))?;
+    let mut selected = BTreeSet::new();
+
+    for file in files {
+        let candidate = if file.is_absolute() {
+            file.clone()
+        } else {
+            current_directory.join(file)
+        };
+        let canonical_file = fs::canonicalize(&candidate)
+            .with_context(|| format!("Selected file does not exist: {}", file.display()))?;
+        if !canonical_file.is_file() {
+            anyhow::bail!("Selected path is not a regular file: {}", file.display());
+        }
+        let relative = canonical_file
+            .strip_prefix(&canonical_root)
+            .with_context(|| {
+                format!(
+                    "Selected file is outside the repository: {}",
+                    file.display()
+                )
+            })?;
+        selected.insert(relative.to_path_buf());
+    }
+
+    Ok(selected.into_iter().collect())
 }
 
 /// Get the current directory's path relative to the repo root.

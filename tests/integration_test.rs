@@ -40,6 +40,89 @@ fn test_help_flag() {
     assert!(stdout.contains("--config"));
     assert!(stdout.contains("--verbose"));
     assert!(stdout.contains("init"));
+    assert!(stdout.contains("[FILE]"));
+}
+
+#[test]
+fn test_explicit_files_limit_formatter_scope() {
+    let config = r#"
+version: 1
+tools:
+  - name: explicit
+    include: ["**/*.txt"]
+    cmd: cat
+"#;
+    let dir = setup_test_dir(config);
+    Command::new("git")
+        .args(["init"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    fs::write(dir.path().join("first.txt"), "first").unwrap();
+    fs::write(dir.path().join("second.txt"), "second").unwrap();
+
+    let output = Command::new(ffx_binary())
+        .current_dir(dir.path())
+        .args(["--verbose", "first.txt"])
+        .output()
+        .expect("Failed to run ffx with an explicit file");
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("first.txt"), "stdout: {stdout}");
+    assert!(!stdout.contains("second.txt"), "stdout: {stdout}");
+}
+
+#[test]
+fn test_explicit_file_from_subdirectory_is_repository_relative() {
+    let config = r#"
+version: 1
+tools:
+  - name: explicit
+    include: ["**/*.txt"]
+    cmd: cat
+"#;
+    let dir = setup_test_dir(config);
+    Command::new("git")
+        .args(["init"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    let nested = dir.path().join("nested");
+    fs::create_dir(&nested).unwrap();
+    fs::write(nested.join("selected.txt"), "selected").unwrap();
+
+    let output = Command::new(ffx_binary())
+        .current_dir(&nested)
+        .args(["--verbose", "selected.txt"])
+        .output()
+        .expect("Failed to run ffx from a subdirectory");
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("nested/selected.txt"),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+}
+
+#[test]
+fn test_explicit_file_rejects_discovery_mode() {
+    let output = Command::new(ffx_binary())
+        .args(["--all", "src/main.rs"])
+        .output()
+        .expect("Failed to run conflicting ffx arguments");
+
+    assert_eq!(output.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("cannot be used with"));
 }
 
 #[test]

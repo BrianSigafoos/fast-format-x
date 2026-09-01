@@ -36,6 +36,9 @@ Binaries available on [GitHub Releases](https://github.com/BrianSigafoos/fast-fo
 # Format changed files (default)
 ffx
 
+# Format only named files
+ffx src/main.rs README.md
+
 # Format staged files only
 ffx --staged
 
@@ -137,6 +140,11 @@ tools:
 ### Check Mode for CI
 
 Use `--check` to verify files are formatted without modifying them.
+
+Pass file paths directly when a targeted edit should not expand to every
+uncommitted change. Paths may be absolute or relative to the current directory,
+are deduplicated, and must name existing files inside the current repository.
+Explicit files cannot be combined with `--all`, `--staged`, or `--base`.
 
 #### Fast PR Checks with `--base` (Recommended)
 

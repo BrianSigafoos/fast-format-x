@@ -29,6 +29,7 @@ const CONFIG_FILE_NAME: &str = ".fast-format-x.yaml";
 #[command(after_help = "\
 Examples:
   ffx                       Format changed files (uncommitted)
+  ffx src/main.rs README.md Format only the named files
   ffx --staged              Format staged files only
   ffx --base origin/main    Format files changed vs origin/main
   ffx --all                 Format all matching files
@@ -47,6 +48,10 @@ struct Cli {
     /// Initialize git hooks
     #[command(subcommand)]
     command: Option<Command>,
+
+    /// Run only on these files (relative to the current directory or absolute)
+    #[arg(value_name = "FILE", conflicts_with_all = ["all", "staged", "base"])]
+    files: Vec<PathBuf>,
 
     /// Run on all files matching config patterns
     #[arg(long)]
@@ -206,7 +211,7 @@ fn run() -> Result<RunOutcome> {
     }
 
     // Get files to format (respects current directory scope, returns repo-root-relative paths)
-    let (files, file_source) = collect_target_files(&cli)?;
+    let (files, file_source) = collect_target_files(&cli, &repo_root)?;
 
     if files.is_empty() {
         println!("No {file_source}.");
@@ -450,8 +455,14 @@ fn filter_skipped_tools(
         .collect()
 }
 
-fn collect_target_files(cli: &Cli) -> Result<(Vec<PathBuf>, String)> {
-    if cli.all {
+fn collect_target_files(cli: &Cli, repo_root: &Path) -> Result<(Vec<PathBuf>, String)> {
+    if !cli.files.is_empty() {
+        Ok((
+            git::explicit_files(&cli.files, repo_root)
+                .context("Failed to resolve selected files")?,
+            "selected files".to_string(),
+        ))
+    } else if cli.all {
         Ok((
             git::all_files().context("Failed to get all files")?,
             "all tracked files".to_string(),
