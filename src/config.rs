@@ -5,6 +5,7 @@
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use std::fs;
+use std::num::NonZeroUsize;
 use std::path::Path;
 
 /// Root configuration structure matching .ffx.yaml schema.
@@ -40,6 +41,10 @@ pub struct Tool {
     /// Arguments to use in check mode (--check flag). Falls back to args if not set.
     #[serde(default)]
     pub check_args: Option<Vec<String>>,
+
+    /// Optional maximum files per invocation, in addition to the argument-byte limit.
+    #[serde(default)]
+    pub batch_size: Option<NonZeroUsize>,
 }
 
 impl Tool {
@@ -140,6 +145,19 @@ tools:
         assert_eq!(config.tools[0].cmd, "npx");
         assert_eq!(config.tools[0].args, vec!["prettier", "--write"]);
         assert!(config.tools[0].check_args.is_none());
+    }
+
+    #[test]
+    fn test_batch_size_is_optional_and_positive() {
+        let yaml = "version: 1\ntools:\n  - name: lint\n    include: ['**/*.erb']\n    cmd: echo\n";
+        assert!(parse_and_validate(yaml).unwrap().tools[0]
+            .batch_size
+            .is_none());
+        let config = parse_and_validate(&format!("{yaml}    batch_size: 400\n")).unwrap();
+        assert_eq!(config.tools[0].batch_size.unwrap().get(), 400);
+        for invalid in ["0", "-1", "1.5"] {
+            assert!(parse_and_validate(&format!("{yaml}    batch_size: {invalid}\n")).is_err());
+        }
     }
 
     #[test]

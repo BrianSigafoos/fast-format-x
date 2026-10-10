@@ -1313,3 +1313,88 @@ fn test_update_subcommand_help() {
         "Should show --check flag. stdout: {stdout}"
     );
 }
+
+#[test]
+fn test_timings_preserve_check_coverage_and_failure() {
+    for (command, code) in [("echo", 0), ("false", 1)] {
+        let config = format!("version: 1\ntools:\n  - name: measured\n    include: [\"**/*.txt\"]\n    cmd: {command}\n    check_args: []\n");
+        let dir = setup_test_dir(&config);
+        Command::new("git")
+            .arg("init")
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+        fs::write(dir.path().join("one.txt"), "one").unwrap();
+        fs::write(dir.path().join("two.txt"), "two").unwrap();
+        let output = Command::new(ffx_binary())
+            .current_dir(dir.path())
+            .args(["--check", "--timings", "one.txt", "two.txt"])
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(code));
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("File discovery:"), "{stdout}");
+        assert!(stdout.contains("matching:"), "{stdout}");
+        assert!(stdout.contains("[measured] 2 files ("), "{stdout}");
+        assert!(stdout.contains("s; 1 batch)"), "{stdout}");
+        assert_eq!(
+            fs::read_to_string(dir.path().join("one.txt")).unwrap(),
+            "one"
+        );
+        assert_eq!(
+            fs::read_to_string(dir.path().join("two.txt")).unwrap(),
+            "two"
+        );
+    }
+}
+
+#[test]
+fn test_configured_batches_keep_all_files_and_propagate_one_failure() {
+    let config = r#"
+version: 1
+tools:
+  - name: batched
+    include: ["**/*.txt"]
+    cmd: sh
+    args: ["-c", 'printf "%s\n" "$@"; for file do test "$file" != bad.txt || exit 1; done', batch]
+    check_args: ["-c", 'printf "%s\n" "$@"; for file do test "$file" != bad.txt || exit 1; done', batch]
+    batch_size: 2
+"#;
+    let dir = setup_test_dir(config);
+    Command::new("git")
+        .arg("init")
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    let files = ["one.txt", "two.txt", "bad.txt", "four.txt", "five.txt"];
+    for file in files {
+        fs::write(dir.path().join(file), file).unwrap();
+    }
+    for jobs in ["1", "3"] {
+        for mode in ["--check", "--verbose"] {
+            let output = Command::new(ffx_binary())
+                .current_dir(dir.path())
+                .args([mode, "--timings", "--jobs", jobs])
+                .args(files)
+                .output()
+                .unwrap();
+            assert_eq!(output.status.code(), Some(1));
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            assert!(stdout.contains("[batched] 5 files ("), "{stdout}");
+            assert!(stdout.contains("3 batches)"), "{stdout}");
+            // Captured stdout proves every file was executed exactly once,
+            // even with a failed batch, rather than merely listed in a command.
+            for file in files {
+                assert_eq!(
+                    stdout
+                        .lines()
+                        .filter(|line| *line == format!("  {file}"))
+                        .count(),
+                    1,
+                    "{stdout}"
+                );
+                assert_eq!(fs::read_to_string(dir.path().join(file)).unwrap(), file);
+            }
+        }
+    }
+}
