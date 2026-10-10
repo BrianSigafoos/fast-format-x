@@ -9,6 +9,7 @@ use std::ffi::OsStr;
 use std::io::ErrorKind;
 use std::path::Path;
 use std::process::{Command, Output};
+use std::time::{Duration, Instant};
 
 /// Maximum bytes per command invocation to avoid ARG_MAX limits.
 /// 128KB is safe for most systems (macOS ARG_MAX is 256KB, Linux is 2MB+).
@@ -18,6 +19,8 @@ const MAX_BATCH_BYTES: usize = 128 * 1024;
 /// Result of running a single batch.
 #[derive(Debug)]
 pub struct BatchResult {
+    started: Instant,
+    finished: Instant,
     /// Whether the command succeeded (exit code 0)
     pub success: bool,
     /// Combined stdout output
@@ -31,6 +34,8 @@ pub struct BatchResult {
 /// Result of running all batches for a tool.
 #[derive(Debug)]
 pub struct ToolResult {
+    /// Span from first subprocess start to last subprocess completion.
+    pub elapsed: Duration,
     /// Whether all batches succeeded
     pub success: bool,
     /// Results from each batch
@@ -45,7 +50,7 @@ fn arg_bytes(s: &OsStr) -> usize {
 
 /// Create batches of files that fit within MAX_BATCH_BYTES.
 ///
-/// Each batch's total arg bytes (cmd + args + files) stays under the limit.
+/// Each batch also respects an optional maximum file count.
 fn create_batches<'a>(tool: &Tool, files: &[&'a Path], check_mode: bool) -> Vec<Vec<&'a Path>> {
     let args = tool.get_args(check_mode);
     // Calculate fixed overhead: command + configured args
@@ -61,7 +66,12 @@ fn create_batches<'a>(tool: &Tool, files: &[&'a Path], check_mode: bool) -> Vec<
 
         // If adding this file would exceed limit, start a new batch
         // (unless batch is empty - we must include at least one file)
-        if !current_batch.is_empty() && current_bytes + file_bytes > MAX_BATCH_BYTES {
+        let at_file_limit = tool
+            .batch_size
+            .is_some_and(|size| current_batch.len() >= size.get());
+        if !current_batch.is_empty()
+            && (at_file_limit || current_bytes + file_bytes > MAX_BATCH_BYTES)
+        {
             batches.push(std::mem::take(&mut current_batch));
             current_bytes = base_bytes;
         }
@@ -117,9 +127,22 @@ pub fn run_tool(
     }
 
     Ok(ToolResult {
+        elapsed: execution_span(&batch_results),
         success: all_success,
         batches: batch_results,
     })
+}
+
+// Rayon may execute unrelated tools while joining this tool's batches. Measure
+// the subprocess span, not time until the join returns, to avoid attributing
+// another tool's work to this one.
+fn execution_span(batches: &[BatchResult]) -> Duration {
+    let first = batches.iter().map(|batch| batch.started).min();
+    let last = batches.iter().map(|batch| batch.finished).max();
+    match (first, last) {
+        (Some(first), Some(last)) => last.duration_since(first),
+        _ => Duration::ZERO,
+    }
 }
 
 /// Run a single batch of files through a formatter.
@@ -160,10 +183,13 @@ fn run_batch(
         String::new()
     };
 
+    let started = Instant::now();
     let output: Output = match cmd.output() {
         Ok(output) => output,
         Err(err) if err.kind() == ErrorKind::ArgumentListTooLong => {
             return Ok(BatchResult {
+                started,
+                finished: Instant::now(),
                 success: false,
                 stdout: String::new(),
                 stderr: format!("Argument list too long when executing '{}'", tool.cmd),
@@ -175,10 +201,13 @@ fn run_batch(
         }
     };
 
+    let finished = Instant::now();
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
 
     Ok(BatchResult {
+        started,
+        finished,
         success: output.status.success(),
         stdout,
         stderr,
@@ -226,6 +255,7 @@ mod tests {
             cmd: cmd.to_string(),
             args: args.iter().map(|s| s.to_string()).collect(),
             check_args: None,
+            batch_size: None,
         }
     }
 
@@ -242,7 +272,28 @@ mod tests {
             cmd: cmd.to_string(),
             args: args.iter().map(|s| s.to_string()).collect(),
             check_args: Some(check_args.iter().map(|s| s.to_string()).collect()),
+            batch_size: None,
         }
+    }
+
+    #[test]
+    fn test_execution_span_uses_subprocess_times_not_join_time() {
+        let origin = Instant::now();
+        let batch = |start, end| BatchResult {
+            started: origin + Duration::from_secs(start),
+            finished: origin + Duration::from_secs(end),
+            success: true,
+            stdout: String::new(),
+            stderr: String::new(),
+            command: String::new(),
+        };
+        // Completion ordering can differ from input ordering; overlapping
+        // subprocesses count once, not as the sum of their durations.
+        assert_eq!(
+            execution_span(&[batch(2, 7), batch(0, 3)]),
+            Duration::from_secs(7)
+        );
+        assert_eq!(execution_span(&[]), Duration::ZERO);
     }
 
     #[test]
@@ -350,6 +401,44 @@ mod tests {
             result.batches.len() > 1,
             "Expected multiple batches for long paths, got {}",
             result.batches.len()
+        );
+    }
+
+    #[test]
+    fn test_file_limit_keeps_byte_limit_and_every_path_once() {
+        let mut tool = make_tool("test", "echo", &[]);
+        tool.batch_size = std::num::NonZeroUsize::new(2);
+        let paths: Vec<PathBuf> = [
+            "short".to_string(),
+            "x".repeat(70_000),
+            "y".repeat(70_000),
+            "last".to_string(),
+            "tail".to_string(),
+        ]
+        .into_iter()
+        .map(PathBuf::from)
+        .collect();
+        let files: Vec<&Path> = paths.iter().map(PathBuf::as_path).collect();
+        let batches = create_batches(&tool, &files, true);
+        assert_eq!(batches.iter().flatten().copied().collect::<Vec<_>>(), files);
+        assert_eq!(batches.iter().map(Vec::len).collect::<Vec<_>>(), [2, 2, 1]);
+        for batch in batches {
+            assert!(
+                batch
+                    .iter()
+                    .map(|p| arg_bytes(p.as_os_str()))
+                    .sum::<usize>()
+                    < MAX_BATCH_BYTES
+            );
+        }
+        // The byte limit still splits before a larger requested file limit.
+        tool.batch_size = std::num::NonZeroUsize::new(10);
+        assert_eq!(
+            create_batches(&tool, &files, true)
+                .iter()
+                .map(Vec::len)
+                .collect::<Vec<_>>(),
+            [2, 3]
         );
     }
 

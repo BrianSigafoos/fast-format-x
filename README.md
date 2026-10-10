@@ -63,6 +63,9 @@ ffx --jobs 4
 # Stop on first failure
 ffx --fail-fast
 
+# Report file discovery, matching, and per-tool wall times
+ffx --all --check --timings
+
 # Verbose output
 ffx --verbose
 ```
@@ -136,6 +139,34 @@ tools:
     args: [fmt, --]
     check_args: [fmt, --, --check]
 ```
+
+### Parallel batches for expensive per-file tools
+
+Tools normally split only when arguments approach the operating-system byte
+limit. Set a positive `batch_size` to also cap the files per invocation:
+
+```yaml
+- name: erb_lint
+  include: ["**/*.html.erb"]
+  cmd: bundle
+  args: [exec, erb_lint, --autocorrect]
+  check_args: [exec, erb_lint]
+  batch_size: 400
+```
+
+This is opt-in. Use it only when a tool can process independent file groups
+concurrently; avoid it for commands that rewrite shared project state or require
+the entire file set. It applies in both format and check modes. Every matched
+file is still passed exactly once, the argument-byte limit still applies, and
+any failed batch fails the run. Tools and batches share the `--jobs` process
+limit; the formatter itself may start additional workers.
+
+Use `--all --check --timings` to measure discovery, matching and each tool's wall
+time and batch count. Each tool's time spans its first subprocess start to its
+last subprocess completion, excluding time its Rayon thread spends helping other
+tools after its own subprocesses finish. Tool times overlap and must not be
+added to estimate total runtime. Compare full CI under its normal concurrent load before choosing batch
+sizes or claiming CI savings.
 
 ### Check Mode for CI
 

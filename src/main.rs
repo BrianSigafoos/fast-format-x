@@ -86,6 +86,10 @@ struct Cli {
     #[arg(long)]
     fail_fast: bool,
 
+    /// Report file discovery, matching, and per-tool wall times
+    #[arg(long)]
+    timings: bool,
+
     /// Show commands and detailed output
     #[arg(long, short = 'v')]
     verbose: bool,
@@ -211,7 +215,9 @@ fn run() -> Result<RunOutcome> {
     }
 
     // Get files to format (respects current directory scope, returns repo-root-relative paths)
+    let discovery_started = Instant::now();
     let (files, file_source) = collect_target_files(&cli, &repo_root)?;
+    let discovery_elapsed = discovery_started.elapsed();
 
     if files.is_empty() {
         println!("No {file_source}.");
@@ -219,8 +225,19 @@ fn run() -> Result<RunOutcome> {
     }
 
     // Match files to tools
+    let matching_started = Instant::now();
     let matches =
         matcher::match_files(&files, &active_tools).context("Failed to match files to tools")?;
+
+    if cli.timings {
+        println!(
+            "File discovery: {:.3}s ({} files); matching: {:.3}s",
+            discovery_elapsed.as_secs_f64(),
+            files.len(),
+            matching_started.elapsed().as_secs_f64()
+        );
+        println!("Tool timings span subprocess execution; parallel tools and batches overlap.");
+    }
 
     if matches.is_empty() {
         println!("No files matched any tool patterns.");
@@ -332,13 +349,28 @@ fn run() -> Result<RunOutcome> {
                     "✗".red()
                 };
 
-                if cli.verbose || !is_tty {
+                if cli.verbose || !is_tty || cli.timings {
+                    let timing = if cli.timings {
+                        format!(
+                            " ({:.3}s; {} batch{})",
+                            tool_result.elapsed.as_secs_f64(),
+                            tool_result.batches.len(),
+                            if tool_result.batches.len() == 1 {
+                                ""
+                            } else {
+                                "es"
+                            }
+                        )
+                    } else {
+                        String::new()
+                    };
                     println!(
-                        "{} [{}] {} {}",
+                        "{} [{}] {} {}{}",
                         status,
                         name.cyan(),
                         file_count,
-                        pluralize_files(file_count)
+                        pluralize_files(file_count),
+                        timing
                     );
                 }
 
@@ -851,6 +883,7 @@ mod tests {
             cmd: "definitely_not_installed".to_string(),
             args: vec![],
             check_args: None,
+            batch_size: None,
         };
 
         let matches = vec![matcher::MatchResult {
@@ -875,6 +908,7 @@ mod tests {
             cmd: "echo".to_string(),
             args: vec![],
             check_args: None,
+            batch_size: None,
         };
 
         let matches = vec![matcher::MatchResult {

@@ -112,6 +112,7 @@ mod tests {
             cmd: "echo".to_string(),
             args: vec![],
             check_args: None,
+            batch_size: None,
         }
     }
 
